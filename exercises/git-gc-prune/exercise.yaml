@@ -1,0 +1,50 @@
+# yaml-language-server: $schema=./exercise.schema.json
+schemaVersion: 1
+id: 1c6e048b-92c5-4fd0-a7cd-a7a781812e26
+chapter: "5.1"
+title: Verwaiste Commits mit dem Garbage Collector entfernen
+durationMinutes: 6
+intro: >
+  Unerreichbare (verwaiste) Objekte räumt Git irgendwann selbst weg – der *Garbage
+  Collector*. Aus Sicherheit schont er frische Objekte aber wochenlang (Schonfrist),
+  damit ein Reflog-Rescue noch geht. Für sofortiges Aufräumen musst du die Schonfrist
+  ausdrücklich übergehen.
+debrief: >
+  Mit `git gc --prune=now` sind die verwaisten Commits **endgültig** weg – auch übers
+  Reflog nicht mehr zu retten. Genau deshalb ist die Schonfrist der Standard: das
+  Sicherheitsnetz, das du hier bewusst ausgehängt hast.
+
+# Freischalt-Gate (Code wird im Workshop angesagt; hier steht nur der salted SHA-256-Hash).
+unlock:
+  salt: "7c70fc6ea7a899e1"
+  hash: "c0190fbc0274727d85f18f5d58565141ee2ca3387c65c81a06277611105c8d70"
+
+# Kein bundle: Die Sandbox legt ein Repo mit einem Commit an und erzeugt anschließend
+# zwei verwaiste Commits per `git commit-tree` (von keinem Ref referenziert und NICHT im
+# Reflog – sonst würde der Reflog sie am Leben halten und gc könnte sie nicht entfernen).
+provisioning:
+  setup:
+    - git init -q
+    - printf "Inhalt\n" > datei.txt
+    - git add datei.txt
+    - git commit -q -m "Basis-Commit"
+    - git commit-tree -m "Verwaiste Arbeit A" 'HEAD^{tree}' > /dev/null
+    - git commit-tree -m "Verwaiste Arbeit B" 'HEAD^{tree}' > /dev/null
+
+steps:
+  - id: gc-prune
+    title: Verwaiste Commits einsammeln
+    task: |
+      Im Repository liegen verwaiste Commits (siehe Graph: orphans, von keinem
+      Branch erreichbar). Normalerweise räumt Git solche Objekte irgendwann selbst
+      weg – rufe den Garbage Collector jetzt so auf, dass die verwaisten Commits
+      SOFORT entfernt werden.
+
+      Achtung: Ein einfaches `git gc` schont kürzlich entstandene Objekte (Standard:
+      ~2 Wochen Schonfrist). Du musst das Aufräumen also ausdrücklich erzwingen.
+    goals:
+      - type: noDanglingCommits
+    hints:
+      - Der Garbage Collector heißt  git gc.
+      - Mit  --prune=<zeit>  steuerst du, ab wann unerreichbare Objekte entfernt werden.
+      - "Lösung:  git gc --prune=now"

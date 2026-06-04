@@ -1,0 +1,102 @@
+{
+  "name": "git-workshop",
+  "version": "0.1.0",
+  "description": "Interaktiver Git-Workshop: echte Git-Sandbox, sequenzielle Validierung, Live-Commit-Graph. Offline und plattformuebergreifend (Electron).",
+  "license": "MIT",
+  "author": "Sebastian Walther",
+  "homepage": "https://github.com/shinji-san/git-workshop",
+  "private": true,
+  "type": "module",
+  "main": "out/main/main.js",
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "scripts": {
+    "dev": "electron-vite dev",
+    "build": "electron-vite build",
+    "preview": "electron-vite preview",
+    "start": "electron-vite preview",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "typecheck:core": "tsc --noEmit -p tsconfig.check.json",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "clean": "tsx scripts/clean.ts",
+    "clean:deep": "tsx scripts/clean.ts --deep",
+    "verify": "npm run clean && npm run typecheck && npm test && npm run build",
+    "schema:gen": "tsx scripts/generate-schema.ts",
+    "unlock:gen": "tsx scripts/gen-unlock.ts",
+    "bundles:gen": "tsx scripts/generate-bundles.ts",
+    "icon:gen": "tsx scripts/generate-icon.ts",
+    "vendor:win": "tsx scripts/fetch-git-portable.ts",
+    "postinstall": "tsx scripts/generate-bundles.ts && tsx scripts/generate-icon.ts",
+    "dist:linux": "npm run icon:gen && npm run bundles:gen && electron-vite build && electron-builder --linux",
+    "dist:win": "npm run vendor:win && npm run icon:gen && npm run bundles:gen && electron-vite build && electron-builder --win"
+  },
+  "build": {
+    "appId": "de.workshop.git-workshop",
+    "productName": "Git-Workshop",
+    "icon": "build/icon.png",
+    "files": [
+      "out/**",
+      "package.json"
+    ],
+    "asarUnpack": [
+      "**/node_modules/node-pty/**"
+    ],
+    "extraResources": [
+      {
+        "from": "exercises",
+        "to": "exercises"
+      },
+      {
+        "from": "build/icon.png",
+        "to": "icon.png"
+      }
+    ],
+    "linux": {
+      "target": [
+        "AppImage",
+        "tar.gz"
+      ],
+      "category": "Development"
+    },
+    "win": {
+      "target": [
+        "nsis",
+        "portable"
+      ],
+      "extraResources": [
+        {
+          "from": "vendor/git-portable",
+          "to": "toolchain"
+        }
+      ]
+    }
+  },
+  "dependencies": {
+    "@xterm/addon-fit": "^0.10.0",
+    "@xterm/xterm": "^5.5.0",
+    "chokidar": "^3.6.0",
+    "d3": "^7.9.0",
+    "js-yaml": "^4.1.0",
+    "node-pty": "^1.0.0",
+    "zod": "^3.23.8"
+  },
+  "overrides": {
+    "esbuild": "0.28.1"
+  },
+  "devDependencies": {
+    "@resvg/resvg-js": "^2.6.2",
+    "@types/d3": "^7.4.3",
+    "@types/js-yaml": "^4.0.9",
+    "@types/node": "^20.14.0",
+    "electron": "^42.3.3",
+    "electron-builder": "^26.0.12",
+    "electron-vite": "^5.0.0",
+    "tsx": "^4.16.0",
+    "typescript": "^5.5.0",
+    "vite": "^7.0.0",
+    "vitest": "^4.0.0",
+    "zod-to-json-schema": "^3.23.0"
+  }
+}

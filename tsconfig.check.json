@@ -1,0 +1,20 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "lib": ["ES2022"]
+  },
+  "include": [
+    "src/core/**/*.ts",
+    "src/application/**/*.ts",
+    "src/infrastructure/**/*.ts",
+    "src/electron/shared/**/*.ts",
+    "scripts/**/*.ts",
+    "test/**/*.ts"
+  ],
+  "exclude": [
+    "src/electron/main/**",
+    "src/electron/preload/**",
+    "src/electron/renderer-console/**",
+    "src/electron/renderer-graph/**"
+  ]
+}

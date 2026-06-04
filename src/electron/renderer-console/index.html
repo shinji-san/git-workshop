@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'" />
+    <title>Git-Workshop – Konsole</title>
+    <style>
+      /* Dark is the base theme; [data-theme="light"] overrides the variables. main resolves
+         the OS/menu preference to light|dark and the renderer sets <html data-theme>. */
+      :root {
+        color-scheme: dark;
+        --bg: #1e1e1e;
+        --fg: #eee;
+        --statusbar-bg: #181818;
+        --border: #333;
+        --muted: #888;
+        --timer-fg: #bbb;
+        --accent-red: #e05050;
+        --ok: #4caf50;
+        --count-fg: #9aa0a6;
+        --pitfall-border: #e0a030;
+        --pitfall-bg: #2a2410;
+        --danger-bg: #2a1010;
+        --hint-border: #5090e0;
+        --hint-bg: #101a2a;
+        --debrief-border: #4caf50;
+        --debrief-bg: #0f1f12;
+        --code-bg: #2a2a2a;
+        --link: #5090e0;
+        --btn-bg: #333;
+        --btn-border: #555;
+        --btn-hover-bg: #3d3d3d;
+        --btn-hover-border: #6a6a6a;
+        --btn-disabled-fg: #888;
+        --btn-disabled-bg: #2b2b2b;
+        --btn-disabled-border: #444;
+        --graph-btn-bg: #1b3a2a;
+        --graph-btn-border: #2e6b48;
+        --graph-btn-hover-bg: #24503a;
+        --graph-btn-hover-border: #3a875c;
+      }
+      :root[data-theme='light'] {
+        color-scheme: light;
+        --bg: #ffffff;
+        --fg: #1e1e1e;
+        --statusbar-bg: #f3f3f3;
+        --border: #d4d4d4;
+        --muted: #777;
+        --timer-fg: #555;
+        --accent-red: #c62828;
+        --ok: #2e7d32;
+        --count-fg: #666;
+        --pitfall-border: #c98a00;
+        --pitfall-bg: #fff7e0;
+        --danger-bg: #fdecea;
+        --hint-border: #1565c0;
+        --hint-bg: #e7f0fb;
+        --debrief-border: #2e7d32;
+        --debrief-bg: #eaf6ec;
+        --code-bg: #ececec;
+        --link: #1565c0;
+        --btn-bg: #e8e8e8;
+        --btn-border: #bbb;
+        --btn-hover-bg: #dcdcdc;
+        --btn-hover-border: #999;
+        --btn-disabled-fg: #999;
+        --btn-disabled-bg: #f0f0f0;
+        --btn-disabled-border: #ccc;
+        --graph-btn-bg: #e3f3ea;
+        --graph-btn-border: #8ccfa9;
+        --graph-btn-hover-bg: #d3edde;
+        --graph-btn-hover-border: #5fb487;
+      }
+      body { margin: 0; display: grid; grid-template-columns: 1fr 340px; grid-template-rows: 1fr auto; height: 100vh; font-family: system-ui, sans-serif; background: var(--bg); color: var(--fg); }
+      #statusbar { grid-column: 1 / -1; border-top: 1px solid var(--border); background: var(--statusbar-bg); padding: 4px 12px; min-height: 22px; display: flex; justify-content: flex-end; align-items: center; }
+      #timer { font-size: 13px; color: var(--timer-fg); font-variant-numeric: tabular-nums; }
+      #timer.warn { color: var(--accent-red); animation: blink 1s steps(2, start) infinite; }
+      #timer.expired { color: var(--accent-red); font-weight: bold; }
+      @keyframes blink { 50% { opacity: 0.25; } }
+      @media (prefers-reduced-motion: reduce) { #timer.warn { animation: none; } }
+      #terminal { padding: 6px; min-width: 0; }
+      #panel { border-left: 1px solid var(--border); padding: 16px; overflow-y: auto; }
+      #panel h2 { font-size: 15px; margin: 0 0 4px; }
+      #progress { color: var(--muted); font-size: 12px; margin-bottom: 12px; }
+      #task { line-height: 1.4; }
+      #goals li { margin: 4px 0; }
+      .ok::before { content: "✓ "; color: var(--ok); }
+      .pending::before { content: "○ "; color: var(--muted); }
+      .pitfall { border-left: 3px solid var(--pitfall-border); background: var(--pitfall-bg); padding: 8px; margin: 8px 0; font-size: 13px; }
+      .pitfall.danger { border-color: var(--accent-red); background: var(--danger-bg); }
+      .hint { border-left: 3px solid var(--hint-border); background: var(--hint-bg); padding: 8px; margin: 8px 0; font-size: 13px; }
+      .error { border-left: 3px solid var(--accent-red); background: var(--danger-bg); padding: 8px; margin: 8px 0; font-size: 13px; }
+      /* Concept framing (intro) and completion wrap-up (debrief): minimal rich-text info cards. */
+      #intro { border-left: 3px solid var(--hint-border); background: var(--hint-bg); padding: 4px 10px 8px; margin: 0 0 12px; font-size: 13px; }
+      #intro[hidden] { display: none; }
+      #intro > summary { cursor: pointer; color: var(--muted); font-size: 12px; padding: 4px 0; user-select: none; }
+      #debrief { border-left: 3px solid var(--debrief-border); background: var(--debrief-bg); padding: 8px 10px; margin: 12px 0; font-size: 13px; }
+      #debrief[hidden] { display: none; }
+      .rich p { margin: 6px 0; line-height: 1.45; }
+      .rich ul { margin: 6px 0; padding-left: 20px; }
+      .rich li { margin: 2px 0; line-height: 1.45; }
+      .rich code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; background: var(--code-bg); padding: 1px 4px; border-radius: 3px; }
+      button { background: var(--btn-bg); color: var(--fg); border: 1px solid var(--btn-border); border-radius: 4px; padding: 6px 10px; cursor: pointer; margin-right: 6px; }
+      button:hover { background: var(--btn-hover-bg); border-color: var(--btn-hover-border); }
+      #search { width: 100%; box-sizing: border-box; margin: 0 0 12px; padding: 7px 10px; font-size: 13px; background: var(--bg); color: var(--fg); border: 1px solid var(--border); border-radius: 4px; }
+      #search:focus { outline: none; border-color: var(--hint-border); }
+      #search::placeholder { color: var(--muted); }
+      #search[hidden] { display: none; }
+      #picker { display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; }
+      #picker:empty { display: none; }
+      .picker-empty { color: var(--muted); font-size: 13px; padding: 2px 0; }
+      .exercise-row { display: flex; gap: 6px; }
+      .exercise-open { flex: 1 1 auto; margin: 0; padding: 10px 12px; text-align: left; font-size: 14px; }
+      .exercise-open .status { display: inline-block; width: 1.3em; }
+      .exercise-open .status-completed { color: var(--ok); }
+      .exercise-open .count { color: var(--count-fg); font-size: 12px; }
+      .exercise-open:disabled { cursor: not-allowed; color: var(--btn-disabled-fg); background: var(--btn-disabled-bg); border-color: var(--btn-disabled-border); }
+      .exercise-open:disabled:hover { background: var(--btn-disabled-bg); border-color: var(--btn-disabled-border); }
+      .exercise-restart { flex: 0 0 auto; margin: 0; padding: 10px 12px; }
+      #back { background: none; border: none; color: var(--link); padding: 0; margin: 0 0 12px; font-size: 13px; cursor: pointer; }
+      #back:hover { background: none; border-color: transparent; text-decoration: underline; }
+      #open-graph { display: block; width: 100%; margin: 0 0 16px; padding: 8px 12px; background: var(--graph-btn-bg); border-color: var(--graph-btn-border); }
+      #open-graph[hidden] { display: none; }
+      #open-graph:hover { background: var(--graph-btn-hover-bg); border-color: var(--graph-btn-hover-border); }
+      .done { color: var(--ok); font-weight: bold; }
+      /* Unlock-code field (shown only while at least one exercise is locked). */
+      #unlock-row { margin-top: 4px; padding-top: 12px; border-top: 1px solid var(--border); }
+      #unlock-row[hidden] { display: none; }
+      #unlock-label { display: block; color: var(--muted); font-size: 12px; margin-bottom: 6px; }
+      #unlock-input-row { display: flex; gap: 6px; }
+      #unlock-code { flex: 1 1 auto; box-sizing: border-box; padding: 7px 10px; font-size: 13px; background: var(--bg); color: var(--fg); border: 1px solid var(--border); border-radius: 4px; }
+      #unlock-code:focus { outline: none; border-color: var(--hint-border); }
+      #unlock-code::placeholder { color: var(--muted); }
+      #unlock-btn { flex: 0 0 auto; margin: 0; }
+      #unlock-status { font-size: 12px; min-height: 1.2em; margin-top: 6px; }
+      #unlock-status.ok { color: var(--ok); }
+      #unlock-status.err { color: var(--accent-red); }
+    </style>
+  </head>
+  <body>
+    <div id="terminal"></div>
+    <aside id="panel">
+      <button id="open-graph" hidden>▣ Graph-Fenster öffnen</button>
+      <div id="overview">
+        <h2 id="picker-title">Aufgabe wählen</h2>
+        <input id="search" type="search" placeholder="Aufgaben durchsuchen…" autocomplete="off" spellcheck="false" hidden />
+        <div id="picker"></div>
+        <div id="unlock-row" hidden>
+          <label id="unlock-label" for="unlock-code">🔒 Aufgabe freischalten</label>
+          <div id="unlock-input-row">
+            <input id="unlock-code" type="text" placeholder="Freischaltcode…" autocomplete="off" spellcheck="false" />
+            <button id="unlock-btn" type="button">Freischalten</button>
+          </div>
+          <div id="unlock-status" aria-live="polite"></div>
+        </div>
+      </div>
+
+      <div id="exercise" hidden>
+        <button id="back">← Aufgabenübersicht</button>
+        <h2 id="title"></h2>
+        <div id="progress"></div>
+        <details id="intro" open hidden>
+          <summary>Worum geht's?</summary>
+          <div class="rich" id="intro-body"></div>
+        </details>
+        <div id="task" class="rich"></div>
+        <h2 style="margin-top:16px">Ziele</h2>
+        <ul id="goals"></ul>
+        <div id="debrief" class="rich" hidden></div>
+        <div style="margin-top:16px">
+          <button id="hint">Tipp</button>
+          <button id="reset">Zuruecksetzen</button>
+        </div>
+      </div>
+
+      <div id="messages"></div>
+    </aside>
+    <footer id="statusbar"><span id="timer"></span></footer>
+    <script type="module" src="./console.ts"></script>
+  </body>
+</html>

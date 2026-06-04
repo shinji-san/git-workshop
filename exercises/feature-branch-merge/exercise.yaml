@@ -1,0 +1,80 @@
+# yaml-language-server: $schema=./exercise.schema.json
+schemaVersion: 1
+id: 5828a258-8371-43c6-af97-3505fa89fa88
+chapter: "2.0"
+title: Feature-Branch in main mergen
+durationMinutes: 5
+intro: >
+  Ein Branch ist nur ein **beweglicher Zeiger** auf einen Commit – kein Kopieren von
+  Dateien. Auf einem Feature-Branch arbeitest du parallel zur Hauptlinie; ein `merge`
+  führt beide Linien später wieder zusammen.
+debrief: >
+  Du hast zwei Entwicklungslinien zusammengeführt. Der Merge-Commit hat **zwei Eltern** –
+  im Graph siehst du, wie die Linien zusammenlaufen. Branches sind billig, weil sie nur
+  Zeiger sind: nutze sie großzügig.
+
+# Freischalt-Gate (Code wird im Workshop angesagt; hier steht nur der salted SHA-256-Hash).
+unlock:
+  salt: "0d8b0f605a2207d6"
+  hash: "53e798fac3da7a9483127a5e24aac1e245a6ed15c8ac337110592ba338c4d7e4"
+
+provisioning:
+  bundle: ./feature-branch-merge.bundle   # relativ zum Aufgabenpaket -> verschiebbar
+  keepOrigin: false
+  # Startzustand (im Bundle): main und feature sind divergiert.
+  #   * Add feature              (feature)
+  #   | * Hinweise in main ...   (main, HEAD)
+  #   |/
+  #   * Init Repo
+  # Weil beide Branches eigene Commits seit dem gemeinsamen Vorfahren haben, erzeugt
+  # ein normaler Merge einen echten Merge-Commit (kein Fast-Forward).
+  # setup ist optional – nur noetig, wenn der Startzustand uncommittete Aenderungen,
+  # einen detached HEAD oder einen halben Rebase braucht:
+  # setup:
+  #   - printf "Notiz\n" >> notes.txt   # laeuft in der Sandbox-Shell
+
+commonPitfalls:                            # gelten in JEDEM Schritt
+  - id: detached-head
+    when:
+      - type: headDetached
+    severity: warning
+    message: Du bist im detached-HEAD-Zustand – Commits hängen hier an keinem Branch.
+    recovery: "Zurück mit:  git switch main"
+
+steps:
+  - id: review-feature
+    title: Den feature-Branch ansehen
+    task: |
+      Auf dem Branch "feature" liegt fertige Arbeit, während "main" inzwischen
+      weitergelaufen ist. Wechsle auf "feature", um dir die Arbeit anzusehen.
+    goals:
+      - type: headOnBranch
+        name: feature
+    hints:
+      - Mit welchem Befehl wechselt man auf einen bestehenden Branch?
+      - Schau dir  git switch  an (ohne  -c , der Branch existiert schon).
+      - "Lösung:  git switch feature"
+
+  - id: merge-back
+    title: feature in main mergen
+    task: |
+      Wechsle zurück nach main und merge feature hinein. Weil beide Branches
+      divergiert sind, entsteht dabei ein echter Merge-Commit (zwei Eltern).
+    goals:
+      - type: headOnBranch
+        name: main
+      - type: tipHasParents
+        branch: main
+        count: 2
+    hints:
+      - Erst auf main wechseln, dann von dort aus mergen.
+      - "Lösung:  git switch main  und danach  git merge feature"
+    pitfalls:
+      - id: merge-direction-reversed
+        when:
+          - type: tipHasParents
+            branch: feature
+            count: 2
+        severity: warning
+        message: Du hast main in feature gemergt – die Richtung ist umgekehrt.
+        recovery: feature zurücksetzen, auf main wechseln und erneut mergen.

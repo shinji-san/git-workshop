@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:" />
+    <title>Git-Workshop – Commit-Graph</title>
+    <!-- Only page layout here. The graph's own styles (.edge, circle.node, .ref-*, …) are the
+         single source GRAPH_CSS in graph.ts, injected at runtime and reused for the PNG export. -->
+    <style>
+      /* Dark base; [data-theme="light"] overrides. GRAPH_CSS in graph.ts references these
+         same variables, so the live graph recolours when <html data-theme> flips. */
+      :root {
+        color-scheme: dark;
+        --graph-bg: #16181c;
+        --graph-fg: #ddd;
+        --edge: #6b7280;
+        --edge-unreachable: #7a4a2a;
+        --node-reachable: #4f86d6;
+        --node-unreachable: #c47a3a;
+        --summary: #cbd5e1;
+        --ref-branch: #4caf50;
+        --ref-tag: #d6b04f;
+        --ref-head: #e05050;
+        --legend: #94a3b8;
+        --tip-bg: #1f2329;
+        --tip-fg: #e5e7eb;
+        --tip-fg-dim: #6b7280;
+        --tip-border: #2d333b;
+      }
+      :root[data-theme='light'] {
+        color-scheme: light;
+        --graph-bg: #ffffff;
+        --graph-fg: #222;
+        --edge: #6b7280;
+        --edge-unreachable: #b5651d;
+        --node-reachable: #1f6fcf;
+        --node-unreachable: #c0691f;
+        --summary: #333;
+        --ref-branch: #2e7d32;
+        --ref-tag: #a6781a;
+        --ref-head: #c62828;
+        --legend: #555;
+        --tip-bg: #ffffff;
+        --tip-fg: #1f2937;
+        --tip-fg-dim: #9ca3af;
+        --tip-border: #d1d5db;
+      }
+      body { margin: 0; background: var(--graph-bg); color: var(--graph-fg); font-family: system-ui, sans-serif; }
+      #graph { width: 100vw; height: 100vh; }
+      /* SHA tooltip shown while hovering a commit node. A plain DOM overlay (outside the SVG),
+         so it never lands in the PNG export. Colours follow the theme via the same vars. */
+      #sha-tip {
+        position: fixed;
+        left: 0;
+        top: 0;
+        z-index: 10;
+        pointer-events: none;
+        padding: 4px 8px;
+        border-radius: 5px;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font-size: 11px;
+        white-space: nowrap;
+        background: var(--tip-bg);
+        color: var(--tip-fg-dim);
+        border: 1px solid var(--tip-border);
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+        opacity: 0;
+        transition: opacity 0.08s ease;
+      }
+      #sha-tip.show { opacity: 1; }
+      #sha-tip b { color: var(--tip-fg); font-weight: 700; }
+      /* Commit detail popup (click a node). A DOM card outside the SVG -> never in the export. */
+      #commit-pop {
+        position: fixed;
+        left: 0;
+        top: 0;
+        z-index: 20;
+        max-width: 380px;
+        padding: 10px 12px;
+        border-radius: 6px;
+        background: var(--tip-bg);
+        color: var(--tip-fg);
+        border: 1px solid var(--tip-border);
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+        font-size: 12px;
+        line-height: 1.45;
+      }
+      #commit-pop[hidden] { display: none; }
+      #commit-pop-close {
+        position: absolute;
+        top: 4px;
+        right: 6px;
+        border: none;
+        background: none;
+        color: var(--tip-fg-dim);
+        font-size: 16px;
+        line-height: 1;
+        cursor: pointer;
+        padding: 2px 4px;
+      }
+      #commit-pop-close:hover { color: var(--tip-fg); }
+      #commit-pop .pop-sha {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        color: var(--tip-fg-dim);
+        margin-bottom: 6px;
+        padding-right: 16px;
+        word-break: break-all;
+      }
+      #commit-pop .pop-sha b { color: var(--tip-fg); font-weight: 700; }
+      #commit-pop dl { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; }
+      #commit-pop dt { color: var(--legend); white-space: nowrap; }
+      #commit-pop dd { margin: 0; color: var(--summary); word-break: break-word; }
+      #commit-pop .pop-msg {
+        margin-top: 8px;
+        padding-top: 8px;
+        border-top: 1px solid var(--tip-border);
+        white-space: pre-wrap;
+        word-break: break-word;
+        max-height: 40vh;
+        overflow: auto;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        color: var(--summary);
+      }
+      /* Inline copy buttons (📋 -> ✓ on click). Small, borderless, theme-coloured. */
+      #commit-pop .pop-copy {
+        border: none;
+        background: none;
+        cursor: pointer;
+        padding: 0 2px;
+        margin-left: 4px;
+        font-size: 11px;
+        line-height: 1;
+        vertical-align: baseline;
+        color: var(--tip-fg-dim);
+        opacity: 0.75;
+      }
+      #commit-pop .pop-copy:hover { opacity: 1; }
+      #commit-pop .pop-copy.copied { color: var(--ref-branch); opacity: 1; }
+      /* Message block + its copy button pinned to the top-right corner (outside the scroll area). */
+      #commit-pop .pop-msg-wrap { position: relative; }
+      #commit-pop .pop-copy-msg {
+        position: absolute;
+        top: 8px;
+        right: 2px;
+        z-index: 1;
+        margin-left: 0;
+        background: var(--tip-bg);
+        border-radius: 4px;
+      }
+      /* Footer: copy all fields as one block. */
+      #commit-pop .pop-copy-all {
+        display: block;
+        width: 100%;
+        margin-top: 10px;
+        padding: 5px 8px;
+        border: 1px solid var(--tip-border);
+        border-radius: 5px;
+        background: none;
+        color: var(--tip-fg);
+        font: inherit;
+        font-size: 11px;
+        cursor: pointer;
+      }
+      #commit-pop .pop-copy-all:hover { border-color: var(--tip-fg-dim); }
+      #commit-pop .pop-copy-all.copied { color: var(--ref-branch); border-color: var(--ref-branch); }
+    </style>
+  </head>
+  <body>
+    <svg id="graph"></svg>
+    <div id="sha-tip" role="tooltip" aria-hidden="true"><b></b><span></span></div>
+    <div id="commit-pop" role="dialog" aria-label="Commit-Details" hidden>
+      <button id="commit-pop-close" aria-label="Schließen">×</button>
+      <div id="commit-pop-body"></div>
+    </div>
+    <script type="module" src="./graph.ts"></script>
+  </body>
+</html>

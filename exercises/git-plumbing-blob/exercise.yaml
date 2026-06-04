@@ -1,0 +1,65 @@
+# yaml-language-server: $schema=./exercise.schema.json
+schemaVersion: 1
+id: 935a02ac-6003-4b4c-a07e-d858d5c854ae
+chapter: "3.0"
+title: Plumbing - Blobs schreiben und lesen
+durationMinutes: 5
+intro: >
+  Unter der Haube speichert Git Dateiinhalte als `blob`-Objekte, adressiert über ihren
+  SHA-1. `git hash-object -w` schreibt einen Inhalt direkt als Blob in die
+  Objektdatenbank – ohne Commit, ohne Staging.
+debrief: >
+  Du hast Gits unterste Ebene berührt: Inhalt rein (`hash-object`), über den Hash wieder
+  raus (`cat-file`). Commits, Trees und Branches sind nur **Schichten** über genau diesen
+  Objekten. Gleicher Inhalt → gleicher Hash → genau ein Blob (Deduplizierung).
+
+# Freischalt-Gate (Code wird im Workshop angesagt; hier steht nur der salted SHA-256-Hash).
+unlock:
+  salt: "9b606571dff2e003"
+  hash: "1206dd97570837de4216609102cec0f80e28fc761e0259af495426eb7fa18ffc"
+
+# Kein bundle: Die Sandbox initialisiert ein leeres Repo und legt eine Datei an.
+# Der Fokus liegt auf den Plumbing-Befehlen, nicht auf dem Setup.
+provisioning:
+  setup:
+    - git init -q
+    - printf "Hallo Git\n" > brief.txt
+
+steps:
+  - id: write-blob
+    title: Inhalt als Blob speichern
+    task: |
+      Git speichert Dateiinhalte als "Blob"-Objekte in seiner Objektdatenbank.
+      Schreibe den Inhalt von brief.txt als Blob in die Datenbank (nicht nur den
+      Hash berechnen, sondern wirklich speichern).
+
+      Danach existiert ein Blob-Objekt, und du bekommst dessen OID (Hash) ausgegeben.
+    goals:
+      # B: der richtige Plumbing-Befehl wurde benutzt (mit -w geschrieben, nicht nur gehasht)
+      - type: gitCommandUsed
+        name: hash-object
+        argsContain: ["-w"]
+      # A: die Wirkung ist eingetreten - ein Blob liegt jetzt in der Objektdatenbank
+      - type: objectExists
+        kind: blob
+    hints:
+      - Der Plumbing-Befehl zum Hashen heißt  git hash-object.
+      - Ohne Schreiben wird nur der Hash berechnet; mit  -w  wird der Blob gespeichert.
+      - "Lösung:  git hash-object -w brief.txt"
+
+  - id: read-blob
+    title: Blob wieder auslesen
+    task: |
+      Lies den eben gespeicherten Blob wieder aus der Objektdatenbank aus und gib
+      seinen Inhalt aus. Verwende die OID aus dem vorherigen Schritt.
+
+      (Dieser Schritt ist rein lesend und hinterlässt keinen neuen Zustand - geprüft
+      wird daher, dass du den richtigen Plumbing-Befehl ausgeführt hast.)
+    goals:
+      - type: gitCommandUsed
+        name: cat-file
+        argsContain: ["-p"]
+    hints:
+      - Der Plumbing-Befehl zum Anzeigen von Objekten heißt  git cat-file.
+      - Mit  -p  (pretty-print) wird der Inhalt typgerecht ausgegeben.
+      - "Lösung:  git cat-file -p <OID>   (OID aus Schritt 1)"

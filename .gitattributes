@@ -1,0 +1,14 @@
+# Git bundles are binary: never touch line endings/filters
+*.bundle binary
+
+# Normalize text files to LF (deterministic across all platforms)
+*.ts        text eol=lf
+*.js        text eol=lf
+*.json      text eol=lf
+*.yaml      text eol=lf
+*.yml       text eol=lf
+*.md        text eol=lf
+*.html      text eol=lf
+
+# Shell scripts always LF, otherwise they break under Git Bash / WSL
+*.sh        text eol=lf

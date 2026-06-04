@@ -1,0 +1,76 @@
+# yaml-language-server: $schema=./exercise.schema.json
+schemaVersion: 1
+id: 44046a85-6d99-44ce-9650-1b1edd6013b3
+chapter: "5.0"
+title: Verlorenen Commit nach Hard-Reset retten (Reflog)
+durationMinutes: 8
+intro: >
+  Ein `git reset --hard` verschiebt nur den Branch-Zeiger – die alten Commits sind nicht
+  gelöscht, nur **nicht mehr erreichbar**. Git führt im *Reflog* Buch über jede
+  HEAD-Bewegung; daraus holst du verloren geglaubte Commits zurück.
+debrief: >
+  Du hast einen scheinbar verlorenen Commit übers Reflog gefunden und als Branch
+  gesichert. In Git geht fast nichts wirklich verloren, solange das Objekt existiert und
+  im Reflog steht. `git reflog` ist deine Rückversicherung nach einem falschen `reset`.
+
+# Freischalt-Gate (Code wird im Workshop angesagt; hier steht nur der salted SHA-256-Hash).
+unlock:
+  salt: "162b19df340f8ef6"
+  hash: "e833f6a85ca608705fa0b6d52eba1a87bd4c659b052d557a3f8cf60b6ec029bd"
+
+# Kein bundle: Die Sandbox legt ein Arbeits-Repo mit drei Commits an.
+# Der jüngste Commit "Wichtige Arbeit" wird im ersten Schritt per Hard-Reset verloren.
+provisioning:
+  setup:
+    - git init -q
+    - printf "Zeile 1\n" > arbeit.txt
+    - git add arbeit.txt
+    - git commit -q -m "Erster Commit"
+    - printf "Zeile 2\n" >> arbeit.txt
+    - git add arbeit.txt
+    - git commit -q -m "Zweiter Commit"
+    - printf "Zeile 3 - wichtige Arbeit\n" >> arbeit.txt
+    - git add arbeit.txt
+    - git commit -q -m "Wichtige Arbeit"
+
+steps:
+  - id: hard-reset
+    title: Commit durch Hard-Reset verlieren
+    task: |
+      Setze den Branch `main` per Hard-Reset eine Position zurück (auf den vorherigen
+      Commit). Dadurch "verlierst" du den jüngsten Commit "Wichtige Arbeit": Er ist
+      danach von keinem Branch mehr erreichbar.
+
+      Schau in den Graphen – der Commit hängt jetzt verwaist da (orphan).
+    goals:
+      - type: danglingCommitExists
+        summary: Wichtige Arbeit
+    hints:
+      - Ein Hard-Reset setzt Branch UND Arbeitsverzeichnis zurück - git reset --hard <ziel>.
+      - HEAD~1 bezeichnet den Commit eine Position vor dem aktuellen.
+      - "Lösung:  git reset --hard HEAD~1"
+
+  - id: rescue
+    title: Verlorenen Commit als Branch retten
+    task: |
+      Der verlorene Commit ist nicht weg - Git führt im Reflog Buch über jede
+      Bewegung von `HEAD`. **Sieh dir zuerst den Reflog an** (`git reflog`), finde dort
+      den Commit "Wichtige Arbeit" und checke ihn als NEUEN Branch namens "rettung" aus.
+
+      Danach ist der Commit wieder erreichbar (über den Branch rettung), und du
+      stehst auf diesem Branch. (Falls ein Pager öffnet, verlässt du ihn mit `q`.)
+    goals:
+      - type: gitCommandUsed
+        name: reflog
+      - type: branchExists
+        name: rettung
+      - type: headOnBranch
+        name: rettung
+      - type: commitExists
+        summary: Wichtige Arbeit
+        reachableFrom: rettung
+    hints:
+      - "git reflog  zeigt die Historie von HEAD inkl. der „verlorenen“ Commits (Pager mit  q  verlassen)."
+      - Mit  git checkout -b <branch> <commit>  legst du einen Branch an einem bestimmten Commit an und wechselst dorthin.
+      - Die OID des Commits steht im Reflog; alternativ verweist  HEAD@{1}  auf den Stand vor dem Reset.
+      - "Lösung:  git reflog  (Commit finden), dann  git checkout -b rettung HEAD@{1}   (oder:  git checkout -b rettung <OID aus git reflog>)"

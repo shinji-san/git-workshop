@@ -1,0 +1,77 @@
+# yaml-language-server: $schema=./exercise.schema.json
+schemaVersion: 1
+id: cb601aba-8d76-461a-9f94-ec9f39ae510a
+chapter: "4.0"
+title: Bare-Repository als Remote anlegen und pushen
+durationMinutes: 8
+intro: >
+  Ein *bare* Repository hat keinen Arbeitsbereich – nur die `.git`-Datenbank. Genau das
+  nutzt man als Server/Remote: man `push`t Commits dorthin und holt sie von dort. Ein
+  Remote ist nur ein benannter Verweis auf so ein anderes Repository.
+debrief: >
+  Du hast ein bare Repo als Remote angebunden und Commits gepusht. So funktioniert auch
+  GitHub/GitLab im Kern – nur ein bare Repository auf einem Server. "bare" = kein
+  Worktree, deshalb kann man gefahrlos hineinpushen.
+
+# Freischalt-Gate (Code wird im Workshop angesagt; hier steht nur der salted SHA-256-Hash).
+unlock:
+  salt: "5fe4a1acc0254793"
+  hash: "a00728966a9765979547c0612a5ff3c17b9e6759c4ad6e9a1f4764825cdfcda1"
+
+# Kein bundle: Die Sandbox legt ein vorbereitetes Arbeits-Repo mit zwei Commits an.
+# Der jüngste Commit heißt "Wichtiger Commit" – dieser soll am Ende im Bare-Repo ankommen.
+provisioning:
+  setup:
+    - git init -q
+    - printf "# Mein Projekt\n" > README.md
+    - git add README.md
+    - git commit -q -m "Initiale Version"
+    - printf "console.log('feature');\n" > feature.js
+    - git add feature.js
+    - git commit -q -m "Wichtiger Commit"
+
+steps:
+  - id: init-bare
+    title: Bare-Repository anlegen
+    task: |
+      Ein "bare" Repository hat KEIN Arbeitsverzeichnis – es dient als Server/Remote,
+      auf den man pusht. Lege neben dem Projekt (im übergeordneten Ordner) ein bare
+      Repository namens remote.git an.
+
+      Tipp: Der Pfad ../remote.git liegt eine Ebene über dem aktuellen Arbeits-Repo.
+    goals:
+      - type: gitCommandUsed
+        name: init
+        argsContain: ["--bare"]
+    hints:
+      - Ein bare Repository legt man mit  git init --bare <pfad>  an.
+      - Es soll ../remote.git heißen (eine Ebene höher als das aktuelle Verzeichnis).
+      - "Lösung:  git init --bare ../remote.git"
+
+  - id: add-remote
+    title: Remote verbinden
+    task: |
+      Verbinde dein Arbeits-Repository mit dem Bare-Repository. Die Fernverbindung
+      soll den üblichen Namen origin tragen und auf ../remote.git zeigen.
+    goals:
+      - type: gitConfig
+        key: remote.origin.url
+    hints:
+      - Eine Fernverbindung fügt man mit  git remote add <name> <pfad>  hinzu.
+      - Der übliche Name ist origin, der Pfad ../remote.git.
+      - "Lösung:  git remote add origin ../remote.git"
+
+  - id: push
+    title: Inhalt pushen
+    task: |
+      Übertrage den Branch main mit der gesamten Historie zum Remote origin.
+      Danach ist der Commit "Wichtiger Commit" im Bare-Repository angekommen
+      (sichtbar über den Remote-Tracking-Branch origin/main).
+    goals:
+      - type: commitExists
+        summary: Wichtiger Commit
+        reachableFrom: origin/main
+    hints:
+      - Pushen geht mit  git push <remote> <branch>.
+      - Mit  -u  wird origin/main zugleich als Upstream gesetzt.
+      - "Lösung:  git push -u origin main"

@@ -1,0 +1,97 @@
+# yaml-language-server: $schema=./exercise.schema.json
+schemaVersion: 1
+id: e2730d6b-0e54-4bd4-b81d-6212a5abde3e
+chapter: "1.1"
+title: Git konfigurieren, committen und den Autor prüfen
+durationMinutes: 5
+intro: >
+  Jeder Commit trägt einen Autor – Name und E-Mail. Git nimmt die nicht automatisch,
+  du musst sie setzen. `git config` schreibt solche Einstellungen; `--global` gilt für
+  alle deine Repositories, ohne nur fürs aktuelle. Gleich committest du eine Datei und
+  findest deine Identität im Commit wieder.
+debrief: >
+  Du hast Git deine Identität gesetzt und sie direkt im Commit wiedergefunden:
+  `git show` und `git log` zeigen **Autor** und **Datum**, die **unveränderlich** im
+  Commit stehen – sie sind Teil der Historie, nicht bloß Anzeige. Mit `--global` machst
+  du die Identität pro Rechner nur einmal.
+
+provisioning:
+  bundle: ./git-config-setup.bundle   # relativ zum Aufgabenpaket -> verschiebbar
+  keepOrigin: false
+  setup:
+    # Eine bereits vorhandene, NOCH NICHT committete Testdatei – der Teilnehmer committet sie.
+    - printf "Das ist eine Test-Notiz.\n" > notiz.txt
+  # Hinweis: Die Sandbox setzt Name/E-Mail/Default-Branch mit Platzhaltern vor
+  # (user.name=Workshop-Teilnehmer, user.email=workshop@local, init.defaultBranch=main),
+  # damit andere Aufgaben committen koennen. Diese Aufgabe verlangt daher KONKRETE
+  # Zielwerte (!= Default), die der Teilnehmer aktiv per `git config` setzt. Lokal
+  # gesetzte Werte ueberschreiben den globalen Default -> der gepruefte effektive Wert stimmt.
+
+steps:
+  - id: set-identity
+    title: Identität setzen (Name & E-Mail)
+    task: |
+      Lege deine git-Identität für dieses Repository fest:
+
+      - Name: Ada Lovelace
+      - E-Mail: ada@example.org
+
+      Diese Werte landen in jedem zukünftigen Commit als Autor.
+    goals:
+      - type: gitConfig
+        key: user.name
+        value: Ada Lovelace
+      - type: gitConfig
+        key: user.email
+        value: ada@example.org
+    hints:
+      - Einstellungen für dieses Repository setzt man mit  git config <schlüssel> <wert>.
+      - Werte mit Leerzeichen gehören in Anführungszeichen.
+      - 'Name:   git config user.name "Ada Lovelace"'
+      - "E-Mail: git config user.email ada@example.org"
+
+  - id: set-default-branch
+    title: Default-Branch-Namen ändern
+    task: |
+      Setze den Schlüssel init.defaultBranch für dieses Repository auf "develop"
+      (das ist der Branch-Name, den git für neue Repositorys verwendet).
+    goals:
+      - type: gitConfig
+        key: init.defaultBranch
+        value: develop
+    hints:
+      - Der Schlüssel heißt  init.defaultBranch.
+      - "Lösung:  git config init.defaultBranch develop"
+
+  - id: commit-file
+    title: Vorhandene Datei committen
+    task: |
+      Im Arbeitsverzeichnis liegt bereits die Datei `notiz.txt`, die noch nicht
+      versioniert ist. Stage sie und committe sie mit der Nachricht **„Notiz angelegt"**.
+
+      Weil du gerade deine Identität gesetzt hast, trägt dieser Commit automatisch
+      Ada Lovelace als Autor.
+    goals:
+      - type: commitExists
+        summary: Notiz angelegt
+        reachableFrom: main
+    hints:
+      - Zuerst die Datei zur Staging-Area hinzufügen -  git add notiz.txt.
+      - Dann committen mit Nachricht -  git commit -m "<Nachricht>".
+      - 'Lösung:  git add notiz.txt  und danach  git commit -m "Notiz angelegt"'
+
+  - id: inspect-commit
+    title: Commit ansehen (Autor & Datum)
+    task: |
+      Sieh dir den eben erstellten Commit an – darin stehen **Autor** und **Datum**.
+      Verwende `git show` (zeigt den jüngsten Commit) oder `git log`.
+
+      Achte auf die Zeile `Author: Ada Lovelace <ada@example.org>` und das Datum.
+      (Falls ein Pager öffnet, verlässt du ihn mit `q`.)
+    goals:
+      - type: gitCommandUsed
+        name: [show, log]
+    hints:
+      - "`git show HEAD`  zeigt den jüngsten Commit mit Autor, Datum und Änderungen."
+      - "`git log`  listet die Commits, jeweils mit Autor und Datum."
+      - "Lösung:  git show   (oder:  git log)"

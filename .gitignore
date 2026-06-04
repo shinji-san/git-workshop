@@ -1,0 +1,33 @@
+# Dependencies
+node_modules/
+
+# Build output
+out/
+dist/
+*.tsbuildinfo
+
+# Runtime / sandboxes (created temporarily)
+.tmp/
+*.log
+
+# Editor / OS
+.DS_Store
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# Exercise bundles are generated reproducibly (npm run bundles:gen); the committed
+# history lives in each exercise's bundle.yaml. Do NOT version the binary bundles.
+exercises/**/*.bundle
+
+# Do NOT ignore: the generated JSON schemas belong in the repo
+!exercises/**/exercise.schema.json
+
+# Bundled Windows toolchain (Git for Windows Portable): not in the repo; drop it in
+# locally/CI before the Windows build. The placeholder README stays versioned.
+vendor/git-portable/*
+!vendor/git-portable/README.md
+
+# The app icon is generated from build/icon.svg (npm run icon:gen). The SVG is the
+# source; the PNG is generated and NOT versioned.
+build/icon.png

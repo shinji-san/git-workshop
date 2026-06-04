@@ -1,0 +1,9 @@
+# Deklarative Historie fuer das Aufgaben-Bundle (gebaut von: npm run bundles:gen).
+# Die .bundle-Datei selbst ist nicht versioniert (.gitignore) – diese Datei IST die Quelle.
+# Minimaler Startzustand: ein Commit auf main; die Konfiguration setzt der Teilnehmer.
+defaultBranch: main
+head: main
+ops:
+  - commit: Init Repo
+    files:
+      README.md: "# Konfigurations-Uebung\n\nIn dieser Uebung richtest du deine git-Identitaet ein.\n"
