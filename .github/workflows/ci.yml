@@ -47,8 +47,18 @@ jobs:
       - name: Generate JSON schema
         run: npm run schema:gen
 
-      - name: Fail if the committed exercise schema is out of date
-        run: git diff --exit-code -- 'exercises/*/exercise.schema.json'
+      - name: Fail if a committed exercise schema is missing or out of date
+        # schema:gen (re)writes the versioned exercises/*/exercise.schema.json. Use `git status`,
+        # not `git diff`: a plain diff ignores UNTRACKED files, so a new exercise added without its
+        # schema would slip through (schema:gen creates it untracked → CI stays green). bundles/icon
+        # are gitignored, so only schema drift surfaces here.
+        run: |
+          drift="$(git status --porcelain --untracked-files=all -- exercises/ | grep 'exercise\.schema\.json' || true)"
+          if [ -n "$drift" ]; then
+            echo "::error::Run 'npm run schema:gen' and commit the generated schema(s):"
+            echo "$drift"
+            exit 1
+          fi
 
       - name: Unit tests
         run: npm test
