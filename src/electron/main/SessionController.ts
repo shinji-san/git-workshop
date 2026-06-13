@@ -246,7 +246,15 @@ export class SessionController {
     // clears first and then writes the new prompt (covers exercise switching and reset).
     this.view.clearTerminal();
 
-    this.ptyProcess = pty.spawn(this.shellPath, ['-l'], {
+    // Shell args differ by platform. Linux: a login shell (-l) reads .bash_profile -> .bashrc.
+    // Windows (Git-for-Windows / MSYS2): a login shell also runs /etc/profile, which on first launch
+    // prints noisy one-off output (creating /dev/shm + /dev/mqueue fails on the read-only toolchain,
+    // copying \Windows\...\etc files into /etc). We already set the full PATH ourselves
+    // (resolveToolchain -> usr/bin;mingw64/bin;cmd, prepended in buildSandboxEnv), so a NON-login
+    // interactive shell suffices: it reads ~/.bashrc via HOME (prompt, GIT_TRACE2, locale) and skips
+    // /etc/profile entirely -> a clean console. git/coreutils stay on PATH (MSYS converts it).
+    const shellArgs = process.platform === 'win32' ? ['-i'] : ['-l'];
+    this.ptyProcess = pty.spawn(this.shellPath, shellArgs, {
       name: 'xterm-color',
       cwd: ctx.repoPath,
       env: ctx.sandbox.env as { [key: string]: string },
