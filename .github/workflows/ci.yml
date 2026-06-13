@@ -1,7 +1,8 @@
-# Full pipeline on every push to the default branch (develop):
+# CI pipeline. Triggers: push to develop, pull requests targeting develop, and manual dispatch.
 #   verify  -> install (postinstall builds bundles+icon), regenerate bundles & schema,
-#              schema-drift check, unit tests, full type-check, build
-#   package -> per OS (Linux + Windows): build the distributables and upload them as artifacts
+#              schema-drift check, unit tests, full type-check, build. Runs on ALL triggers.
+#   package -> per OS (Linux + Windows): build the distributables and upload them as artifacts.
+#              Skipped on pull requests (heavy) -> runs only on develop pushes / manual dispatch.
 #
 # Native modules (node-pty) can't be cross-compiled, so packaging runs on a matrix of the target
 # OSes. The Windows job fetches Git for Windows Portable via `vendor:win` (needs 7-Zip — present on
@@ -12,6 +13,8 @@ name: CI
 
 on:
   push:
+    branches: [develop]
+  pull_request:
     branches: [develop]
   workflow_dispatch:
 
@@ -59,6 +62,9 @@ jobs:
   package:
     name: Package (${{ matrix.os }})
     needs: verify
+    # Packaging is heavy (installers on two OSes); run it on develop pushes and manual dispatch,
+    # not on every pull request — PRs get the fast `verify` checks only.
+    if: github.event_name != 'pull_request'
     strategy:
       fail-fast: false
       matrix:
