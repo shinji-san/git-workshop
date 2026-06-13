@@ -1,0 +1,111 @@
+# Full pipeline on every push to the default branch (develop):
+#   verify  -> install (postinstall builds bundles+icon), regenerate bundles & schema,
+#              schema-drift check, unit tests, full type-check, build
+#   package -> per OS (Linux + Windows): build the distributables and upload them as artifacts
+#
+# Native modules (node-pty) can't be cross-compiled, so packaging runs on a matrix of the target
+# OSes. The Windows job fetches Git for Windows Portable via `vendor:win` (needs 7-Zip — present on
+# windows-latest — and internet). Artifacts are uploaded for download; this workflow does NOT create
+# a GitHub Release (a branch push has no tag). For real releases, add a tag-triggered job that runs
+# electron-builder with `--publish` and a GH_TOKEN.
+name: CI
+
+on:
+  push:
+    branches: [develop]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# A newer push to the same ref supersedes an in-flight run.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Verify (bundles, schema, tests, build)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22 # engines requires >=22.12
+          cache: npm
+
+      - name: Install (postinstall builds bundles + icon)
+        run: npm ci
+
+      - name: Build exercise bundles
+        run: npm run bundles:gen
+
+      - name: Generate JSON schema
+        run: npm run schema:gen
+
+      - name: Fail if the committed exercise schema is out of date
+        run: git diff --exit-code -- 'exercises/*/exercise.schema.json'
+
+      - name: Unit tests
+        run: npm test
+
+      - name: Type-check (full project, incl. Electron)
+        run: npm run typecheck
+
+      - name: Build (main / preload / renderer)
+        run: npm run build
+
+  package:
+    name: Package (${{ matrix.os }})
+    needs: verify
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: linux
+            artifact: linux-installers
+            paths: |
+              dist/*.AppImage
+              dist/*.tar.gz
+          - os: windows-latest
+            target: win
+            artifact: windows-installers
+            paths: |
+              dist/*.exe
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      # Cache the Electron binary + electron-builder's downloaded tools (appimagetool, nsis, …)
+      # so packaging doesn't re-download them on every run. Missing paths are simply ignored.
+      - name: Cache Electron / electron-builder downloads
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/electron
+            ~/.cache/electron-builder
+            ~/AppData/Local/electron/Cache
+            ~/AppData/Local/electron-builder/Cache
+          key: ${{ runner.os }}-eb-${{ hashFiles('package-lock.json') }}
+          restore-keys: ${{ runner.os }}-eb-
+
+      - name: Install
+        run: npm ci
+
+      - name: Build distributables (${{ matrix.target }})
+        run: npm run dist:${{ matrix.target }}
+
+      - name: Upload installers
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: ${{ matrix.paths }}
+          if-no-files-found: error
+          retention-days: 30
