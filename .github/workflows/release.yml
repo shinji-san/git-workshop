@@ -37,9 +37,11 @@ jobs:
         run: |
           # A semver prerelease tag (e.g. v1.2.3-beta.1) carries a '-' in its version -> mark the
           # release as a prerelease so it isn't shown as "Latest". The flag persists through the
-          # later un-draft edit, so it only needs to be set here.
+          # later un-draft edit, so it only needs to be set here. Strip the leading 'v' and any
+          # +build metadata first (SemVer allows hyphens after '+', e.g. v1.2.3+build-1 is stable).
           prerelease=""
-          case "${GITHUB_REF_NAME#v}" in *-*) prerelease="--prerelease"; echo "Tag $GITHUB_REF_NAME is a prerelease." ;; esac
+          core="${GITHUB_REF_NAME#v}"; core="${core%%+*}"
+          case "$core" in *-*) prerelease="--prerelease"; echo "Tag $GITHUB_REF_NAME is a prerelease." ;; esac
           if state=$(gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --json isDraft -q .isDraft 2>/dev/null); then
             if [ "$state" = "true" ]; then
               echo "Draft release $GITHUB_REF_NAME exists — reusing it (re-run safe)."
