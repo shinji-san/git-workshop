@@ -1,0 +1,108 @@
+# Release pipeline — triggered by pushing a version tag (e.g. v0.1.0).
+# Builds the Linux + Windows installers (version taken from the tag, no commit needed), attaches
+# them plus a combined SHA256SUMS.txt to a GitHub Release, then publishes it.
+#
+# Uses the built-in GITHUB_TOKEN (contents: write) — no personal access token needed, works on a
+# free account. Release assets are free (up to 2 GB each). Everything goes through the `gh` CLI
+# (preinstalled on the runners) to avoid third-party actions and stay on Node-24 actions only.
+#
+# The release is created as a DRAFT, populated, then un-drafted at the end, so it is never publicly
+# visible while still empty.
+name: Release
+
+on:
+  push:
+    tags: ['v*.*.*']
+
+permissions:
+  contents: write # create the release and upload assets
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  GH_TOKEN: ${{ github.token }}
+
+jobs:
+  create-release:
+    name: Create draft release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create the draft release for this tag
+        run: >
+          gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY"
+          --draft --verify-tag --title "$GITHUB_REF_NAME" --generate-notes
+
+  build:
+    name: Build & upload (${{ matrix.os }})
+    needs: create-release
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: linux
+            assets: dist/*.AppImage dist/*.tar.gz
+          - os: windows-latest
+            target: win
+            assets: dist/*.exe
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Cache Electron / electron-builder downloads
+        uses: actions/cache@v5
+        with:
+          path: |
+            ~/.cache/electron
+            ~/.cache/electron-builder
+            ~/AppData/Local/electron/Cache
+            ~/AppData/Local/electron-builder/Cache
+          key: ${{ runner.os }}-eb-${{ hashFiles('package-lock.json') }}
+          restore-keys: ${{ runner.os }}-eb-
+
+      - name: Install
+        run: npm ci
+
+      # Derive the app version from the tag (v1.2.3 -> 1.2.3) for the artifact filenames. Done AFTER
+      # npm ci (so the install matches the committed lockfile) and not committed back to the repo.
+      - name: Set version from tag
+        shell: bash
+        run: |
+          ver="${GITHUB_REF_NAME#v}"
+          echo "Building version $ver from tag $GITHUB_REF_NAME"
+          npm version "$ver" --no-git-tag-version --allow-same-version
+
+      - name: Build distributables (${{ matrix.target }})
+        run: npm run dist:${{ matrix.target }}
+
+      - name: Upload installers to the release
+        shell: bash
+        run: gh release upload "$GITHUB_REF_NAME" ${{ matrix.assets }} --repo "$GITHUB_REPOSITORY" --clobber
+
+  publish:
+    name: Add checksums & publish
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download the uploaded installers
+        run: >
+          gh release download "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --dir rel
+          --pattern '*.AppImage' --pattern '*.tar.gz' --pattern '*.exe'
+
+      - name: Compute SHA256SUMS.txt
+        run: |
+          (cd rel && sha256sum * > ../SHA256SUMS.txt)
+          cat SHA256SUMS.txt
+
+      - name: Attach checksums
+        run: gh release upload "$GITHUB_REF_NAME" SHA256SUMS.txt --repo "$GITHUB_REPOSITORY" --clobber
+
+      - name: Publish the release
+        run: gh release edit "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --draft=false
