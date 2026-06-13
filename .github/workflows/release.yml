@@ -29,13 +29,19 @@ jobs:
     name: Create draft release
     runs-on: ubuntu-latest
     steps:
-      # Idempotent: reuse an existing release if a previous run already created it (so re-running
-      # the whole workflow after a downstream failure doesn't error on "release already exists").
+      # Idempotent + safe: create the draft if absent; reuse it only while it is still a DRAFT
+      # (re-run after a downstream failure). Refuse if it is already PUBLISHED, so an accidental
+      # re-run never clobbers a live release's assets (`gh release upload --clobber` deletes first).
       - name: Create the draft release for this tag
         shell: bash
         run: |
-          if gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            echo "Release $GITHUB_REF_NAME already exists — reusing it (re-run safe)."
+          if state=$(gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --json isDraft -q .isDraft 2>/dev/null); then
+            if [ "$state" = "true" ]; then
+              echo "Draft release $GITHUB_REF_NAME exists — reusing it (re-run safe)."
+            else
+              echo "::error::Release $GITHUB_REF_NAME is already published — refusing to overwrite it. Delete it or push a new tag."
+              exit 1
+            fi
           else
             gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" \
               --draft --verify-tag --title "$GITHUB_REF_NAME" --generate-notes
