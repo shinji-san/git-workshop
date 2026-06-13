@@ -29,8 +29,8 @@
     "icon:gen": "tsx scripts/generate-icon.ts",
     "vendor:win": "tsx scripts/fetch-git-portable.ts",
     "postinstall": "tsx scripts/generate-bundles.ts && tsx scripts/generate-icon.ts",
-    "dist:linux": "npm run icon:gen && npm run bundles:gen && electron-vite build && electron-builder --linux",
-    "dist:win": "npm run vendor:win && npm run icon:gen && npm run bundles:gen && electron-vite build && electron-builder --win"
+    "dist:linux": "npm run icon:gen && npm run bundles:gen && electron-vite build && electron-builder --linux --publish never",
+    "dist:win": "npm run vendor:win && npm run icon:gen && npm run bundles:gen && electron-vite build && electron-builder --win --publish never"
   },
   "build": {
     "appId": "de.workshop.git-workshop",
