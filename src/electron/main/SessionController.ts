@@ -278,9 +278,12 @@ export class SessionController {
       await fs.promises.writeFile(trace, '', { flag: 'a' });
       watchPaths.push(trace);
     }
-    // POLLING instead of inotify: on Linux chokidar opens one inotify instance per watched
-    // directory, which exhausts the per-process limit (max_user_instances) and makes the
-    // watch silently fail (-> no ticks). Polling needs no inotify instances and is cheap.
+    // POLLING instead of inotify: chokidar's default mode calls fs.watch per watched file and
+    // directory, i.e. one inotify watch each on the process's single inotify instance. Both count
+    // against per-user kernel limits shared by every process of the session (max_user_watches,
+    // max_user_instances). A .git/objects full of loose objects or a busy desktop exhausts them,
+    // fs.watch fails (ENOSPC/EMFILE), chokidar only emits 'error' and leaves the paths unwatched
+    // (-> no ticks). Polling (fs.watchFile, stat-based) needs no inotify at all and is cheap.
     this.watcher = chokidar.watch(watchPaths, {
       ignoreInitial: true,
       ignored: (p: string) => GIT_OBJECTS_RE.test(p),

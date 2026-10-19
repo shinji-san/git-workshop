@@ -246,11 +246,20 @@ freezes the remaining time (in `progress.json`); resuming continues from the sam
 
 ### Sandbox observation: polling instead of inotify
 
-The tick is triggered by a `chokidar` watcher on the sandbox (debounced). On Linux `chokidar` opens
-**one inotify instance per directory**; a larger `.git/objects` (e.g. after resuming a worked-on
-exercise) blows past the process limit (`max_user_instances`) → the watch fails silently → no ticks.
-So the watcher runs in **polling mode** (no inotify instances) and ignores `.git/objects` (every
-relevant git operation also touches HEAD/refs/index/logs/config → the trigger stays complete).
+The tick is triggered by a `chokidar` watcher on the sandbox (debounced). In its default mode
+chokidar calls `fs.watch` for **every watched file and directory**; on Linux each of those is an
+inotify *watch* on the **single inotify instance** libuv keeps per event loop. Both are per-user
+kernel limits shared by **every process of the session**: the watches count against
+`fs.inotify.max_user_watches` (8192 on older kernels, RAM-scaled on newer ones), the instance against
+`fs.inotify.max_user_instances` (128 by default). A `.git/objects` with thousands of loose objects
+(e.g. after resuming a worked-on exercise) burns thousands of watches, and a busy desktop (browsers,
+IDEs, Electron apps) alone can sit at the instance limit. When either limit is hit, `fs.watch` fails
+with `ENOSPC`/`EMFILE`; chokidar merely emits an `error` event and leaves the affected paths
+unwatched → no ticks, with nothing visible in the UI. So the watcher runs in **polling mode**
+(`fs.watchFile`, stat-based, no inotify at all) and ignores `.git/objects` (every relevant git
+operation also touches HEAD/refs/index/logs/config → the trigger stays complete). The **dev server**
+(Vite) still uses inotify — see README → Troubleshooting for the symptoms when the instance limit is
+exhausted.
 Additionally the watcher observes the **GIT_TRACE2 log file** (`$HOME/trace2.jsonl`, outside the
 repo): purely read-only plumbing commands (`cat-file`, `ls-files`, …) change nothing in the worktree
 and would otherwise trigger **no tick** — via the (per git-call growing) trace file the tick still
