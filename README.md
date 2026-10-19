@@ -82,9 +82,28 @@ npm test             # unit tests of the pure core (no Electron needed)
 npm run dev          # launch the app (needs a desktop environment)
 ```
 
-> **Troubleshooting:** if `npm run dev`/`start` reports `Electron uninstall`, the Electron binary
-> wasn't downloaded during install — run `node node_modules/electron/install.js` (or
-> `npm rebuild electron`) to fetch it.
+> **Troubleshooting**
+>
+> - `npm run dev`/`start` reports `Electron uninstall`: the Electron binary wasn't downloaded during
+>   install (Electron ≥ 42 ships no postinstall any more) — run `node node_modules/electron/install.js`
+>   (or `npm rebuild electron`) to fetch it.
+> - `npm run dev` exits with code 1, the windows stay **empty**, and the console shows
+>   `inotify_init() failed: Too many open files` (localized on some systems) followed by
+>   `Failed to load URL: http://localhost:5173/… ERR_CONNECTION_REFUSED` (Linux): your session has
+>   exhausted the kernel limit for inotify *instances* (`fs.inotify.max_user_instances`, 128 by
+>   default — a busy desktop with browsers, IDEs and Electron apps gets there). The Vite dev server
+>   dies on its first file watch right after Electron was spawned, so Electron is left behind
+>   orphaned with nothing to load. Raise the limit (persistently), close the orphaned windows, start
+>   again:
+>
+>   ```bash
+>   sudo sysctl fs.inotify.max_user_instances=1024
+>   echo 'fs.inotify.max_user_instances = 1024' | sudo tee /etc/sysctl.d/90-inotify.conf
+>   pkill -f 'git-workshop/node_modules/electron/dist/electron'   # the orphaned windows
+>   ```
+>
+>   Only the dev server needs inotify. The packaged app is unaffected: its sandbox watcher polls by
+>   design (see `CLAUDE.md`), and Chromium's own `inotify_init` errors are harmless log noise.
 
 ---
 
