@@ -1,3 +1,4 @@
+import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as pty from 'node-pty';
 import chokidar, { FSWatcher } from 'chokidar';
@@ -269,7 +270,14 @@ export class SessionController {
     // would never trigger a tick and `gitCommandUsed` goals could not advance. Every git
     // invocation appends here, so this also reliably ticks after object-only writes.
     const watchPaths = [ctx.repoPath];
-    if (ctx.sandbox.env.HOME) watchPaths.push(path.join(ctx.sandbox.env.HOME, TRACE2_FILE));
+    if (ctx.sandbox.env.HOME) {
+      const trace = path.join(ctx.sandbox.env.HOME, TRACE2_FILE);
+      // git creates the trace file on its first traced invocation, i.e. AFTER the watch starts.
+      // chokidar 4 no longer picks up paths that do not exist yet (v3 fell back to polling the
+      // parent directory), so pre-create it empty. Append mode never truncates an existing log.
+      await fs.promises.writeFile(trace, '', { flag: 'a' });
+      watchPaths.push(trace);
+    }
     // POLLING instead of inotify: on Linux chokidar opens one inotify instance per watched
     // directory, which exhausts the per-process limit (max_user_instances) and makes the
     // watch silently fail (-> no ticks). Polling needs no inotify instances and is cheap.
