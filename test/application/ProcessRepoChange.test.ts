@@ -11,6 +11,8 @@ import { Sandbox } from '../../src/core/ports/ISandboxManager';
 const exercise: Exercise = {
   id: 'x',
   chapter: '1.0',
+  locale: 'de-DE',
+  contentLocale: 'de-DE',
   title: 'x',
   provisioning: { bundle: 'x.bundle' },
   commonPitfalls: [
@@ -81,6 +83,8 @@ describe('ProcessRepoChange', () => {
     const twoDetached: Exercise = {
       id: 'x',
       chapter: '1.0',
+  locale: 'de-DE',
+  contentLocale: 'de-DE',
       title: 'x',
       provisioning: { bundle: 'x.bundle' },
       steps: [

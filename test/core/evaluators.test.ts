@@ -48,7 +48,7 @@ const state: RepoState = {
   ],
 };
 
-const p = (a: Parameters<typeof evaluate>[1]) => evaluate(state, a).passed;
+const p = (a: Parameters<typeof evaluate>[1]) => evaluate(state, a, 'de-DE').passed;
 
 describe('evaluators', () => {
   it('branchExists / headOnBranch / headDetached', () => {
@@ -92,7 +92,7 @@ describe('evaluators', () => {
   it('noDanglingCommits: false with an orphan present, true when all are reachable', () => {
     expect(p({ type: 'noDanglingCommits' })).toBe(false); // 'd' (Lost work) is unreachable
     const clean: RepoState = { ...state, commits: state.commits.filter((c) => c.reachable) };
-    expect(evaluate(clean, { type: 'noDanglingCommits' }).passed).toBe(true);
+    expect(evaluate(clean, { type: 'noDanglingCommits' }, 'de-DE').passed).toBe(true);
   });
 
   it('fileStaged / fileInWorktree', () => {
@@ -112,9 +112,11 @@ describe('evaluators', () => {
     const v = evaluateStep(state, [
       { type: 'headOnBranch', name: 'main' },
       { type: 'tipHasParents', branch: 'main', count: 2 },
-    ]);
+    ], 'de-DE');
     expect(v.satisfied).toBe(true);
     expect(v.results).toHaveLength(2);
+    expect(v.results[0].detail).toBe('HEAD ist auf main'); // checklist text in the requested locale
+    expect(evaluateStep(state, [{ type: 'headOnBranch', name: 'main' }], 'en-US').results[0].detail).toBe('HEAD is on main');
   });
 
   it('matchPitfalls fires when the affirmative condition holds', () => {
@@ -132,22 +134,22 @@ describe('repoInitialized / headUnborn', () => {
 
   it('"none" (not a repo): both false', () => {
     const s = at({ kind: 'none' });
-    expect(evaluate(s, { type: 'repoInitialized' }).passed).toBe(false);
-    expect(evaluate(s, { type: 'headUnborn' }).passed).toBe(false);
+    expect(evaluate(s, { type: 'repoInitialized' }, 'de-DE').passed).toBe(false);
+    expect(evaluate(s, { type: 'headUnborn' }, 'de-DE').passed).toBe(false);
   });
 
   it('"unborn" (initialized, no commit): both true; optional branch is checked', () => {
     const s = at({ kind: 'unborn', branch: 'main' });
-    expect(evaluate(s, { type: 'repoInitialized' }).passed).toBe(true);
-    expect(evaluate(s, { type: 'headUnborn' }).passed).toBe(true);
-    expect(evaluate(s, { type: 'headUnborn', branch: 'main' }).passed).toBe(true);
-    expect(evaluate(s, { type: 'headUnborn', branch: 'dev' }).passed).toBe(false);
+    expect(evaluate(s, { type: 'repoInitialized' }, 'de-DE').passed).toBe(true);
+    expect(evaluate(s, { type: 'headUnborn' }, 'de-DE').passed).toBe(true);
+    expect(evaluate(s, { type: 'headUnborn', branch: 'main' }, 'de-DE').passed).toBe(true);
+    expect(evaluate(s, { type: 'headUnborn', branch: 'dev' }, 'de-DE').passed).toBe(false);
   });
 
   it('"attached" (has a commit): initialized but no longer unborn', () => {
     const s = at({ kind: 'attached', branch: 'main', oid: 'a' });
-    expect(evaluate(s, { type: 'repoInitialized' }).passed).toBe(true);
-    expect(evaluate(s, { type: 'headUnborn' }).passed).toBe(false);
+    expect(evaluate(s, { type: 'repoInitialized' }, 'de-DE').passed).toBe(true);
+    expect(evaluate(s, { type: 'headUnborn' }, 'de-DE').passed).toBe(false);
   });
 });
 

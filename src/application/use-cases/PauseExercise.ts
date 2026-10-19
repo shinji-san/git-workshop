@@ -23,7 +23,7 @@ export class PauseExercise {
     if (session.progress.isComplete) return false;
     const id = session.exercise.id;
     const snapshot = await this.sandboxes.saveSnapshot(session.sandbox, id);
-    progress.recordPaused(id, snapshot, session.progress.index, remainingMs, this.clock.now());
+    progress.recordPaused(id, snapshot, session.progress.index, remainingMs, this.clock.now(), session.exercise.contentLocale);
     await this.progressStore.save(progress);
     return true;
   }

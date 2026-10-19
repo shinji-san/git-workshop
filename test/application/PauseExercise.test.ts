@@ -16,6 +16,8 @@ const NOW = 1_700_000_000_000;
 const exercise: Exercise = {
   id: ID,
   chapter: '1.0',
+  locale: 'de-DE',
+  contentLocale: 'de-DE',
   title: 'x',
   provisioning: { bundle: 'x.bundle' },
   steps: [
@@ -86,7 +88,7 @@ describe('PauseExercise', () => {
     expect(sandboxes.saved).toEqual([{ key: ID }]);
     expect(store.saves).toBe(1);
     expect(progress.statusOf(ID).status).toBe('paused');
-    expect(progress.getRecord(ID)).toMatchObject({ snapshotPath: `/snap/${ID}`, lastStepIndex: 0, remainingMs: 42_000 });
+    expect(progress.getRecord(ID)).toMatchObject({ snapshotPath: `/snap/${ID}`, lastStepIndex: 0, remainingMs: 42_000, locale: 'de-DE' });
   });
 
   it('does not snapshot a completed attempt', async () => {
@@ -111,7 +113,7 @@ describe('CompleteExercise', () => {
     const sandboxes = new FakeSandboxes();
     const store = new FakeStore();
     const progress = ParticipantProgress.empty('1.0.0');
-    progress.recordPaused(ID, '/snap/old', 1, undefined, NOW); // a stale snapshot exists
+    progress.recordPaused(ID, '/snap/old', 1, undefined, NOW, 'de-DE'); // a stale snapshot exists
 
     await new CompleteExercise(sandboxes, store, new FakeClock()).execute(progress, ID);
 

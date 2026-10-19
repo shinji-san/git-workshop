@@ -48,7 +48,7 @@ export class ProcessRepoChange {
     // complete more than one step). Each advance is justified by that step's own goals.
     let advanced = false;
     while (!ctx.progress.isComplete) {
-      const stepVerdict = evaluateStep(state, ctx.progress.currentStep.goals);
+      const stepVerdict = evaluateStep(state, ctx.progress.currentStep.goals, ctx.exercise.locale);
       if (!stepVerdict.satisfied) break;
       ctx.progress.advance(stepVerdict);
       advanced = true;
@@ -59,7 +59,7 @@ export class ProcessRepoChange {
     // do – not the (passed) checks of an already-completed step.
     const verdict = ctx.progress.isComplete
       ? { satisfied: true, results: [] }
-      : evaluateStep(state, ctx.progress.currentStep.goals);
+      : evaluateStep(state, ctx.progress.currentStep.goals, ctx.exercise.locale);
 
     const candidates = [...(startStep.pitfalls ?? []), ...(ctx.exercise.commonPitfalls ?? [])];
     const matched = matchPitfalls(state, candidates);

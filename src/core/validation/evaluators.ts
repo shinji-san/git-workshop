@@ -2,6 +2,8 @@ import { Assertion, AssertionType } from '../domain/Assertion';
 import { RepoState } from '../domain/RepoState';
 import { AssertionResult } from '../domain/Verdict';
 import { ancestors, refOid } from './graph-utils';
+import { describeAssertion } from '../i18n/assertionMessages';
+import { Locale } from '../i18n/Locale';
 
 type Of<K extends AssertionType> = Extract<Assertion, { type: K }>;
 type Evaluator<K extends AssertionType> = (state: RepoState, a: Of<K>) => boolean;
@@ -15,6 +17,7 @@ const r = (assertion: Assertion, passed: boolean, detail: string): AssertionResu
 /**
  * One evaluator per assertion type. The mapped type enforces completeness:
  * if a type is missing this object does not compile (open/closed for new checks).
+ * The checklist TEXTS live in core/i18n/assertionMessages.ts (one catalog per UI locale).
  */
 const predicates: { [K in AssertionType]: Evaluator<K> } = {
   branchExists: (s, a) => s.refs.some((ref) => ref.kind === 'branch' && ref.name === a.name),
@@ -101,37 +104,15 @@ const predicates: { [K in AssertionType]: Evaluator<K> } = {
   indexEntry: (s, a) => s.index.some((e) => e.path === a.path),
 };
 
-const details: { [K in AssertionType]: (a: Of<K>) => string } = {
-  branchExists: (a) => `Branch ${a.name} existiert`,
-  headOnBranch: (a) => `HEAD ist auf ${a.name}`,
-  headDetached: () => `HEAD ist detached`,
-  repoInitialized: () => `Repository ist initialisiert`,
-  headUnborn: (a) =>
-    a.branch ? `Repository initialisiert (Branch ${a.branch}, noch kein Commit)` : `Repository initialisiert (noch kein Commit)`,
-  commitExists: (a) => `Commit "${a.summary}" existiert`,
-  tipHasParents: (a) => `${a.branch} hat einen Commit mit ${a.count} Eltern`,
-  branchAhead: (a) => `${a.branch} ist ${a.by} vor ${a.base}`,
-  commitCount: (a) => `${a.ref} hat ${a.count} Commits`,
-  tagExists: (a) => `Tag ${a.name} existiert`,
-  danglingCommitExists: (a) => `verwaister Commit${a.summary ? ` "${a.summary}"` : ''} existiert`,
-  noDanglingCommits: () => `keine verwaisten Commits mehr vorhanden`,
-  fileStaged: (a) => `${a.path} ist gestaged`,
-  fileInWorktree: (a) => `${a.path} liegt im Arbeitsverzeichnis`,
-  gitConfig: (a) =>
-    a.value !== undefined ? `git config ${a.key} = "${a.value}"` : `git config ${a.key} ist gesetzt`,
-  gitCommandUsed: (a) => {
-    const name = typeof a.name === 'string' ? a.name : a.name.join(' oder ');
-    return `git ${name}${a.argsContain && a.argsContain.length ? ' ' + a.argsContain.join(' ') : ''} wurde erfolgreich ausgeführt`;
-  },
-  objectExists: (a) => `ein ${a.kind}-Objekt existiert in der Objektdatenbank`,
-  indexEntry: (a) => `${a.path} liegt im Index (Staging-Area)`,
-};
-
-/** Evaluates a single assertion against the repo state. */
-export function evaluate(state: RepoState, a: Assertion): AssertionResult {
+/** Does the assertion hold? Predicate only – no texts (used for pitfall matching). */
+export function holds(state: RepoState, a: Assertion): boolean {
   // Dispatch via the discriminator; a controlled cast because TS cannot interlock
   // union + map by itself at this one spot.
   const predicate = predicates[a.type] as Evaluator<typeof a.type>;
-  const detail = (details[a.type] as (x: Assertion) => string)(a);
-  return r(a, predicate(state, a as never), detail);
+  return predicate(state, a as never);
+}
+
+/** Evaluates a single assertion against the repo state, with its checklist text in `locale`. */
+export function evaluate(state: RepoState, a: Assertion, locale: Locale): AssertionResult {
+  return r(a, holds(state, a), describeAssertion(a, locale));
 }

@@ -27,6 +27,19 @@ export class SessionContext {
     return this.sandbox.repoPath;
   }
 
+  /**
+   * The same attempt with its texts in another locale: same sandbox, same step, same revealed hints
+   * and already-reported pitfalls – only the resolved exercise object is swapped. The caller
+   * guarantees `exercise` is the same exercise (id, structure, content locale) loaded with other texts.
+   */
+  static relocalized(ctx: SessionContext, exercise: Exercise): SessionContext {
+    const progress = ExerciseProgress.resumeAt(exercise, ctx.progress.index);
+    const next = new SessionContext(exercise, ctx.sandbox, progress, ctx.lastProgressAt, ctx.stuckThresholdMs);
+    next.revealedHints = ctx.revealedHints;
+    next.matchedPitfalls = new Set(ctx.matchedPitfalls);
+    return next;
+  }
+
   /** On advancing: reset the hint ladder and stuck clock for the new step. */
   resetStepRuntime(now: number): void {
     this.revealedHints = 0;

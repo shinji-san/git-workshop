@@ -6,6 +6,8 @@ import { Verdict } from '../../src/core/domain/Verdict';
 const ex: Exercise = {
   id: 'x',
   chapter: '1.0',
+  locale: 'de-DE',
+  contentLocale: 'de-DE',
   title: 'x',
   provisioning: { bundle: 'x.bundle' },
   steps: [

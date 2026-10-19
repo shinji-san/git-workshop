@@ -19,6 +19,11 @@ export interface ExerciseRecord {
   snapshotPath?: string;
   /** Remaining timer milliseconds when paused (used by the timer feature). */
   remainingMs?: number;
+  /**
+   * Content locale (BCP 47) of the paused attempt's sandbox. Resuming must load the exercise with
+   * these `vars` again, whatever the UI language is now – the sandbox content is already built.
+   */
+  locale?: string;
   /** ISO timestamp of the last update. */
   updatedAt: string;
 }
@@ -106,11 +111,19 @@ export class ParticipantProgress {
     return rec;
   }
 
-  recordPaused(id: string, snapshotPath: string, lastStepIndex: number, remainingMs: number | undefined, nowMs: number): void {
+  recordPaused(
+    id: string,
+    snapshotPath: string,
+    lastStepIndex: number,
+    remainingMs: number | undefined,
+    nowMs: number,
+    contentLocale: string,
+  ): void {
     const rec = this.touch(id);
     rec.snapshotPath = snapshotPath;
     rec.lastStepIndex = lastStepIndex;
     rec.remainingMs = remainingMs;
+    rec.locale = contentLocale;
     rec.updatedAt = new Date(nowMs).toISOString();
   }
 
@@ -120,6 +133,7 @@ export class ParticipantProgress {
     rec.snapshotPath = undefined;
     rec.lastStepIndex = undefined;
     rec.remainingMs = undefined;
+    rec.locale = undefined;
     rec.updatedAt = new Date(nowMs).toISOString();
   }
 
@@ -129,6 +143,7 @@ export class ParticipantProgress {
     rec.snapshotPath = undefined;
     rec.lastStepIndex = undefined;
     rec.remainingMs = undefined;
+    rec.locale = undefined;
     rec.updatedAt = new Date(nowMs).toISOString();
   }
 

@@ -16,7 +16,7 @@ describe('ParticipantProgress status derivation', () => {
   it('is "paused" while a snapshot exists, "completed" after finishing', () => {
     const p = ParticipantProgress.empty('1.0.0');
     p.seedSeen([A]);
-    p.recordPaused(A, '/snap/A', 1, undefined, NOW);
+    p.recordPaused(A, '/snap/A', 1, undefined, NOW, 'de-DE');
     expect(p.statusOf(A)).toMatchObject({ status: 'paused', resumable: true });
 
     p.recordCompleted(A, NOW);
@@ -26,7 +26,7 @@ describe('ParticipantProgress status derivation', () => {
   it('shows "paused" (not "completed") when a finished exercise is being redone and paused', () => {
     const p = ParticipantProgress.empty('1.0.0');
     p.recordCompleted(A, NOW); // finished once -> would be "completed"
-    p.recordPaused(A, '/snap/A', 0, undefined, NOW); // restarted + paused -> live attempt
+    p.recordPaused(A, '/snap/A', 0, undefined, NOW, 'de-DE'); // restarted + paused -> live attempt
     expect(p.statusOf(A)).toMatchObject({ status: 'paused', resumable: true, completedCount: 1 });
   });
 
@@ -39,15 +39,26 @@ describe('ParticipantProgress status derivation', () => {
 
   it('clearSnapshot drops a pending resume', () => {
     const p = ParticipantProgress.empty('1.0.0');
-    p.recordPaused(A, '/snap/A', 2, undefined, NOW);
+    p.recordPaused(A, '/snap/A', 2, undefined, NOW, 'de-DE');
     p.clearSnapshot(A, NOW);
     expect(p.getRecord(A)?.snapshotPath).toBeUndefined();
     expect(p.statusOf(A).resumable).toBe(false);
   });
 
+  it('remembers the content locale of a paused attempt and drops it on completion/restart', () => {
+    const p = ParticipantProgress.empty('1.0.0');
+    p.recordPaused(A, '/snap/A', 1, undefined, NOW, 'en-US');
+    expect(p.getRecord(A)?.locale).toBe('en-US');
+    p.recordCompleted(A, NOW);
+    expect(p.getRecord(A)?.locale).toBeUndefined();
+    p.recordPaused(A, '/snap/A', 1, undefined, NOW, 'en-US');
+    p.clearSnapshot(A, NOW);
+    expect(p.getRecord(A)?.locale).toBeUndefined();
+  });
+
   it('exposes the resume record (snapshot + step index)', () => {
     const p = ParticipantProgress.empty('1.0.0');
-    p.recordPaused(A, '/snap/A', 3, undefined, NOW);
+    p.recordPaused(A, '/snap/A', 3, undefined, NOW, 'de-DE');
     expect(p.getRecord(A)).toMatchObject({ snapshotPath: '/snap/A', lastStepIndex: 3 });
   });
 
