@@ -1,12 +1,14 @@
 # Deklarative Historie fuer das Aufgaben-Bundle (gebaut von: npm run bundles:gen).
-# Die .bundle-Datei selbst ist nicht versioniert (.gitignore) – diese Datei IST die Quelle.
+# Die .bundle-Dateien selbst sind nicht versioniert (.gitignore) – diese Datei IST die Quelle.
 # Fluechtiger Startzustand (uncommittete Aenderungen, detached HEAD, halber Rebase) gehoert
 # NICHT hierher, sondern in das setup:-Feld der exercise.yaml.
+# ${readme}/${notesContent}/${commitNotes} kommen aus den vars der Textdateien -> ein Bundle
+# pro Sprache (provisioning.bundle in exercise.yaml enthaelt deshalb ${locale}).
 #
 # Ergebnis: main und feature divergieren ab "Init Repo" -> ein Merge erzeugt einen echten
 # Merge-Commit (kein Fast-Forward).
 #   * Add feature              (feature)
-#   | * Hinweise in main ...   (main, HEAD)
+#   | * <commitNotes>          (main, HEAD)
 #   |/
 #   * Init Repo
 defaultBranch: main
@@ -14,11 +16,11 @@ head: main
 ops:
   - commit: Init Repo
     files:
-      README.md: "# Projekt\n"
+      README.md: "${readme}"
   - branch: feature           # Branch am aktuellen HEAD anlegen (kein Wechsel)
-  - commit: Hinweise in main ergaenzen
+  - commit: ${commitNotes}
     files:
-      NOTES.md: "Hinweise fuer main.\n"
+      NOTES.md: "${notesContent}"
   - switch: feature
   - commit: Add feature
     files:

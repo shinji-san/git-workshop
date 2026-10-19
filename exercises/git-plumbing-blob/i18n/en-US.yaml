@@ -1,0 +1,43 @@
+# yaml-language-server: $schema=./texts.schema.json
+schemaVersion: 1
+locale: en-US
+title: Plumbing - writing and reading blobs
+intro: >
+  Under the hood Git stores file contents as `blob` objects, addressed by their SHA-1.
+  `git hash-object -w` writes a content straight into the object database as a blob –
+  no commit, no staging.
+debrief: >
+  You touched Git's lowest layer: content in (`hash-object`), back out via its hash
+  (`cat-file`). Commits, trees and branches are just **layers** on top of exactly these
+  objects. Same content → same hash → exactly one blob (deduplication).
+
+vars:
+  letterFile: letter.txt
+  letterContent: Hello Git
+
+steps:
+  write-blob:
+    title: Store a content as a blob
+    task: |
+      Git stores file contents as "blob" objects in its object database.
+      Write the content of ${letterFile} into the database as a blob (do not just
+      compute the hash, actually store it).
+
+      Afterwards a blob object exists, and its OID (hash) is printed for you.
+    hints:
+      - The plumbing command for hashing is called  git hash-object.
+      - Without writing only the hash is computed; with  -w  the blob is stored.
+      - "Solution:  git hash-object -w ${letterFile}"
+
+  read-blob:
+    title: Read the blob back
+    task: |
+      Read the blob you just stored back out of the object database and print its
+      content. Use the OID from the previous step.
+
+      (This step is read-only and leaves no new state behind - so what is checked is
+      that you ran the right plumbing command.)
+    hints:
+      - The plumbing command for showing objects is called  git cat-file.
+      - With  -p  (pretty-print) the content is printed according to its type.
+      - "Solution:  git cat-file -p <OID>   (OID from step 1)"

@@ -6,7 +6,7 @@
       "properties": {
         "schemaVersion": {
           "type": "number",
-          "const": 1
+          "const": 2
         },
         "id": {
           "type": "string",
@@ -16,21 +16,9 @@
           "type": "string",
           "pattern": "^\\d+(\\.\\d+)*$"
         },
-        "title": {
-          "type": "string",
-          "minLength": 1
-        },
         "durationMinutes": {
           "type": "integer",
           "exclusiveMinimum": 0
-        },
-        "intro": {
-          "type": "string",
-          "minLength": 1
-        },
-        "debrief": {
-          "type": "string",
-          "minLength": 1
         },
         "unlock": {
           "type": "object",
@@ -440,20 +428,12 @@
                   "warning",
                   "danger"
                 ]
-              },
-              "message": {
-                "type": "string",
-                "minLength": 1
-              },
-              "recovery": {
-                "type": "string"
               }
             },
             "required": [
               "id",
               "when",
-              "severity",
-              "message"
+              "severity"
             ],
             "additionalProperties": false
           }
@@ -464,14 +444,6 @@
             "type": "object",
             "properties": {
               "id": {
-                "type": "string",
-                "minLength": 1
-              },
-              "title": {
-                "type": "string",
-                "minLength": 1
-              },
-              "task": {
                 "type": "string",
                 "minLength": 1
               },
@@ -829,12 +801,6 @@
                   ]
                 },
                 "minItems": 1
-              },
-              "hints": {
-                "type": "array",
-                "items": {
-                  "type": "string"
-                }
               },
               "pitfalls": {
                 "type": "array",
@@ -1207,20 +1173,12 @@
                         "warning",
                         "danger"
                       ]
-                    },
-                    "message": {
-                      "type": "string",
-                      "minLength": 1
-                    },
-                    "recovery": {
-                      "type": "string"
                     }
                   },
                   "required": [
                     "id",
                     "when",
-                    "severity",
-                    "message"
+                    "severity"
                   ],
                   "additionalProperties": false
                 }
@@ -1228,8 +1186,6 @@
             },
             "required": [
               "id",
-              "title",
-              "task",
               "goals"
             ],
             "additionalProperties": false
@@ -1241,7 +1197,6 @@
         "schemaVersion",
         "id",
         "chapter",
-        "title",
         "provisioning",
         "steps"
       ],

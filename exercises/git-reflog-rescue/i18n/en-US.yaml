@@ -1,0 +1,52 @@
+# yaml-language-server: $schema=./texts.schema.json
+schemaVersion: 1
+locale: en-US
+title: Rescue a lost commit after a hard reset (reflog)
+intro: >
+  A `git reset --hard` only moves the branch pointer – the old commits are not deleted,
+  just **no longer reachable**. Git keeps a record of every HEAD movement in the
+  *reflog*; that is where you get commits back that seemed lost.
+debrief: >
+  You found a seemingly lost commit via the reflog and secured it as a branch. In Git
+  hardly anything is truly lost as long as the object exists and is in the reflog.
+  `git reflog` is your safety net after a wrong `reset`.
+
+vars:
+  workFile: work.txt
+  line1: Line 1
+  line2: Line 2
+  line3: Line 3 - important work
+  commitFirst: First commit
+  commitSecond: Second commit
+  commitImportant: Important work
+  rescueBranch: rescue
+
+steps:
+  hard-reset:
+    title: Lose a commit with a hard reset
+    task: |
+      Move the branch `main` back by one position with a hard reset (to the previous
+      commit). This "loses" the latest commit "${commitImportant}": afterwards no
+      branch reaches it any more.
+
+      Look at the graph – the commit now dangles there orphaned.
+    hints:
+      - A hard reset resets the branch AND the working directory - git reset --hard <target>.
+      - HEAD~1 denotes the commit one position before the current one.
+      - "Solution:  git reset --hard HEAD~1"
+
+  rescue:
+    title: Rescue the lost commit as a branch
+    task: |
+      The lost commit is not gone - Git records every movement of `HEAD` in the
+      reflog. **Look at the reflog first** (`git reflog`), find the commit
+      "${commitImportant}" there and check it out as a NEW branch named
+      "${rescueBranch}".
+
+      Afterwards the commit is reachable again (via the branch ${rescueBranch}), and
+      you are on that branch. (If a pager opens, leave it with `q`.)
+    hints:
+      - "git reflog  shows the history of HEAD including the \"lost\" commits (leave the pager with  q )."
+      - With  git checkout -b <branch> <commit>  you create a branch at a specific commit and switch to it.
+      - The commit's OID is in the reflog; alternatively  HEAD@{1}  refers to the state before the reset.
+      - "Solution:  git reflog  (find the commit), then  git checkout -b ${rescueBranch} HEAD@{1}   (or:  git checkout -b ${rescueBranch} <OID from git reflog>)"

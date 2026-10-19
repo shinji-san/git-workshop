@@ -1,0 +1,99 @@
+{
+  "$ref": "#/definitions/ExerciseTexts",
+  "definitions": {
+    "ExerciseTexts": {
+      "type": "object",
+      "properties": {
+        "schemaVersion": {
+          "type": "number",
+          "const": 1
+        },
+        "locale": {
+          "type": "string",
+          "pattern": "^[a-z]{2,3}(-[A-Z]{2})?$"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "intro": {
+          "type": "string",
+          "minLength": 1
+        },
+        "debrief": {
+          "type": "string",
+          "minLength": 1
+        },
+        "vars": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "propertyNames": {
+            "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+          }
+        },
+        "steps": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "title": {
+                "type": "string",
+                "minLength": 1
+              },
+              "task": {
+                "type": "string",
+                "minLength": 1
+              },
+              "hints": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            "required": [
+              "title",
+              "task"
+            ],
+            "additionalProperties": false
+          },
+          "propertyNames": {
+            "minLength": 1
+          }
+        },
+        "pitfalls": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "message": {
+                "type": "string",
+                "minLength": 1
+              },
+              "recovery": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "message"
+            ],
+            "additionalProperties": false
+          },
+          "propertyNames": {
+            "minLength": 1
+          }
+        }
+      },
+      "required": [
+        "schemaVersion",
+        "locale",
+        "title",
+        "steps"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "$schema": "http://json-schema.org/draft-07/schema#"
+}

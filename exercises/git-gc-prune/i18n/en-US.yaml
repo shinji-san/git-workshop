@@ -1,0 +1,36 @@
+# yaml-language-server: $schema=./texts.schema.json
+schemaVersion: 1
+locale: en-US
+title: Remove orphaned commits with the garbage collector
+intro: >
+  Unreachable (orphaned) objects are eventually cleaned up by Git itself – the
+  *garbage collector*. For safety, however, it spares fresh objects for weeks (grace
+  period) so that a reflog rescue is still possible. For immediate cleanup you have
+  to override the grace period explicitly.
+debrief: >
+  With `git gc --prune=now` the orphaned commits are gone **for good** – not even the
+  reflog can bring them back. That is exactly why the grace period is the default:
+  the safety net you deliberately unhooked here.
+
+vars:
+  file: file.txt
+  content: Content
+  commitBase: Base commit
+  orphanA: Orphaned work A
+  orphanB: Orphaned work B
+
+steps:
+  gc-prune:
+    title: Collect the orphaned commits
+    task: |
+      The repository contains orphaned commits (see the graph: orphans, reachable
+      from no branch). Normally Git cleans such objects up by itself at some point –
+      now call the garbage collector so that the orphaned commits are removed
+      IMMEDIATELY.
+
+      Careful: a plain `git gc` spares recently created objects (default: ~2 weeks
+      grace period). So you have to force the cleanup explicitly.
+    hints:
+      - The garbage collector is called  git gc.
+      - With  --prune=<time>  you control from when on unreachable objects are removed.
+      - "Solution:  git gc --prune=now"

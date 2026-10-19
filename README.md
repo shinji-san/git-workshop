@@ -56,6 +56,10 @@ Interactive desktop trainer for hands-on Git workshops: a **real Git console in 
   "uberfuhren" matches "überführen"). Appears once there is more than one exercise.
 - **Per-exercise time budget** (optional): a countdown in the status bar, red blinking in the final
   minute, metronome ticks and a beep at expiry.
+- **Multilingual**: the UI (panels, checklist, menus, dialogs) and the exercises come in **German and
+  English** (`de-DE`, `en-US`; BCP 47 tags). Switch under **View → Language** (System / Deutsch /
+  English). Exercise packages keep one language-neutral structure and one texts file per language,
+  so adding a language means adding a file — see [Writing exercises](#-writing-exercises-file-format).
 
 ---
 
@@ -116,8 +120,8 @@ npm run dev          # launch the app (needs a desktop environment)
 | `npm run test:watch`           | Tests in watch mode.                                                                                                                                      |
 | `npm run typecheck`            | Type-check the **whole** project (incl. Electron; needs all deps).                                                                                        |
 | `npm run typecheck:core`       | Type-check **without** the Electron shell (`tsconfig.check.json`).                                                                                        |
-| `npm run schema:gen`           | Generate `exercises/**/exercise.schema.json` from the Zod schema.                                                                                         |
-| `npm run bundles:gen`          | Build the exercise bundles reproducibly (also runs as `postinstall`).                                                                                     |
+| `npm run schema:gen`           | Generate the JSON schemas (`exercise.schema.json` + `i18n/texts.schema.json`) into every exercise package.                                                                                         |
+| `npm run bundles:gen`          | Build the exercise bundles reproducibly, one per language where `bundle.yaml` uses `${vars}` (also runs as `postinstall`).                                                                                     |
 | `npm run icon:gen`             | Rasterize `build/icon.svg` → `build/icon.png` (for the `dist:*` builds).                                                                                  |
 | `npm run unlock:gen -- "CODE"` | Print the `unlock:` block (salted hash) for a gated exercise.                                                                                             |
 | `npm run electron:fetch`       | Fetch the Electron binary into `node_modules/electron/dist` (idempotent; last `postinstall` step, Electron ≥ 42 has none of its own). Skip with `ELECTRON_SKIP_BINARY_DOWNLOAD=1`. |
@@ -157,35 +161,120 @@ npm run dev          # launch the app (needs a desktop environment)
 ## 📝 Writing exercises (file format)
 
 An exercise package is a folder under `exercises/<slug>/` (the folder name is a readable slug,
-**not** the id):
+**not** the id). Packages are **multilingual by construction**: one language-neutral *structure*
+file plus one *texts* file per language.
 
 ```
 exercises/feature-branch-merge/
-  exercise.yaml          # the exercise (see template) – versioned
-  exercise.schema.json   # generated: npm run schema:gen – versioned
-  bundle.yaml            # declarative starting history of the repo – versioned
-  feature-branch-merge.bundle   # generated from bundle.yaml: npm run bundles:gen – NOT versioned (.gitignore)
+  exercise.yaml                       # STRUCTURE: id, chapter, goals, pitfall conditions, provisioning – no prose
+  exercise.schema.json                # generated: npm run schema:gen – versioned
+  i18n/de-DE.yaml                     # TEXTS (German): title, intro, debrief, steps, pitfalls, vars
+  i18n/en-US.yaml                     # TEXTS (English)
+  i18n/texts.schema.json              # generated: npm run schema:gen – versioned
+  bundle.yaml                         # declarative starting history – versioned
+  feature-branch-merge.de-DE.bundle   # generated from bundle.yaml, one per language – NOT versioned (.gitignore)
+  feature-branch-merge.en-US.bundle
 ```
 
-`exercises/feature-branch-merge/exercise.yaml` is a complete, runnable template. Its first line
-binds the JSON schema so VS Code (with the `redhat.vscode-yaml` extension) validates as you type.
+`exercises/feature-branch-merge/` is a complete, runnable template. The first line of every YAML
+binds its JSON schema so VS Code (with the `redhat.vscode-yaml` extension) validates as you type.
+
+### Languages (locales)
+
+Locales are **BCP 47 tags**: an ISO 639-1 language code plus an ISO 3166-1 alpha-2 region code
+(`de-DE`, `en-US`); a bare language (`en`) is allowed too. The texts file is named after the tag
+(`i18n/en-US.yaml`) and repeats it in its `locale` field. The app picks the texts matching the
+**UI language** (View → Language: System / Deutsch / English, persisted as `"locale"` in
+`~/.git-workshop/settings.json`; "System" follows the OS locale) with this fallback chain:
+exact tag → same language, any region (`en-GB` → `en-US`) → `de-DE` → first available. A package
+therefore never disappears because a translation is missing — it shows up in its fallback
+language instead. The shipped exercises carry `de-DE` and `en-US`; `test/exercise/packages.test.ts`
+fails as soon as one of them is missing or out of sync with the structure.
+
+### Structure vs. texts
+
+The **structure** (`exercise.yaml`, `schemaVersion: 2`) holds everything the validation needs and
+nothing a translator touches: `id`, `chapter`, `durationMinutes`, `unlock`, `provisioning`, the
+`steps` (each `id` + `goals`, optionally `pitfalls` with `id`/`when`/`severity`) and
+`commonPitfalls`. The **texts** (`i18n/<locale>.yaml`, `schemaVersion: 1`) are keyed by those ids:
+
+```yaml
+# yaml-language-server: $schema=./texts.schema.json
+schemaVersion: 1
+locale: en-US
+title: Merge a feature branch into main
+intro: >                 # optional – concept framing, shown foldable above the goals
+  A branch is just a **movable pointer** …
+debrief: >               # optional – consolidation, shown on completion
+  You joined two lines of development …
+vars:                    # optional – localized VALUES, see below
+  commitNotes: Add notes on main
+steps:
+  review-feature:        # step id from exercise.yaml
+    title: Look at the feature branch
+    task: |
+      Switch to "feature" to look at the work.
+    hints:               # escalating ladder, revealed one at a time
+      - Which command switches to an existing branch?
+      - "Solution:  git switch feature"
+pitfalls:
+  detached-head:         # pitfall id from exercise.yaml (step pitfalls and commonPitfalls alike)
+    message: You are in detached-HEAD state – commits made here belong to no branch.
+    recovery: "Get back with:  git switch main"   # optional
+```
+
+Every step and every pitfall of the structure needs texts in every language, and texts for an
+unknown id are an error (typo protection): loading fails with a message naming file and id.
+Because the goals live in the structure only, every language validates exactly the same thing.
+
+### Localized values: `vars` and `${placeholders}`
+
+Branch names, file names, commit messages — whatever the participant types or sees in the sandbox
+belongs to the language too, yet goals and setup live in the neutral structure. So the texts file
+defines `vars`, and structure, `bundle.yaml` and the texts themselves reference them as `${name}`:
+
+```yaml
+# i18n/en-US.yaml
+vars: { rescueBranch: rescue, commitImportant: Important work }
+steps:
+  rescue:
+    task: Check it out as a NEW branch named "${rescueBranch}".   # texts may use vars too
+
+# exercise.yaml
+provisioning:
+  setup:
+    - git commit -q -m "${commitImportant}"
+steps:
+  - id: rescue
+    goals:
+      - type: branchExists
+        name: ${rescueBranch}
+```
+
+Rules: only the braced form `${name}` is recognized (a shell `$HOME` in a setup line stays as it
+is); an undefined placeholder fails the load; `${locale}` (`de-DE`) and `${lang}` (`de`) are built
+in and cannot be redefined. The substitution uses the vars of the **content locale**: normally the
+UI language — but a *paused* attempt is resumed, and a *running* one relocalized after a language
+switch, with the vars its sandbox was provisioned with (progress remembers that locale), so the
+goals keep matching the files and commits that already exist. The participant then sees texts in
+the new language that still name the existing files and commits.
 
 ### Identity & order
 
-Every exercise has a required `id` (**UUID**, the stable identity for
-progress — survives renaming/retitling) and `chapter` (a dotted chapter number such as `"1.0"`,
-`"1.1"`, `"2.0"`, which is also the overview's sort key). The **folder name** stays a readable slug;
-the repository resolves the UUID to the folder on load. Generate a UUID with
+Every exercise has a required `id` (**UUID**, the stable identity for progress — survives
+renaming/retitling and translation) and `chapter` (a dotted chapter number such as `"1.0"`,
+`"1.1"`, `"2.0"`, also the overview's sort key), both in the structure. The **folder name** stays a
+readable slug; the repository resolves the UUID to the folder on load. Generate a UUID with
 `node -e "console.log(crypto.randomUUID())"`.
 
 ### Concept text (`intro` / `debrief` / `task`)
 
-All three run through the same **minimal, safe**
-rich-text formatter (no Markdown library → offline/CSP-safe; HTML is escaped). Supported: paragraphs
-(blank line), **bullet lists** (`- ` / `* `), `**bold**` and `` `code` ``. Within a paragraph single
-line breaks are **reflowed** (Markdown soft-wrap), so literal blocks (`task: |`) wrap to the panel
-width instead of at the YAML line ends. `intro` is shown (foldable) above the goals, `debrief` on
-completion; both are optional.
+All three live in the texts file and run through the same **minimal, safe** rich-text formatter
+(no Markdown library → offline/CSP-safe; HTML is escaped). Supported: paragraphs (blank line),
+**bullet lists** (`- ` / `* `), `**bold**` and `` `code` ``. Within a paragraph single line breaks
+are **reflowed** (Markdown soft-wrap), so literal blocks (`task: |`) wrap to the panel width instead
+of at the YAML line ends. `intro` is shown (foldable) above the goals, `debrief` on completion; both
+are optional. The checklist under the goals is generated from the assertions in the UI language.
 
 ### Available assertions
 
@@ -195,7 +284,7 @@ Discriminator `type`:
 `tagExists`, `danglingCommitExists`, `noDanglingCommits`, `fileStaged`, `fileInWorktree`,
 `gitConfig` (`key`, optional `value`), `gitCommandUsed` (`name` — a single string **or a list** =
 match on *one* of the commands, e.g. `[show, log]`; optional `argsContain`), `objectExists` (`kind`),
-`indexEntry` (`path`).
+`indexEntry` (`path`). All string values may contain `${vars}`.
 
 `repoInitialized` = a repo exists (stays satisfied after commits); `headUnborn` = freshly
 initialized, **no commit yet** (HEAD on an unborn branch) — becomes unsatisfied after the first
@@ -268,20 +357,29 @@ lives declaratively in the exercise's `bundle.yaml`. That's why the `.bundle` fi
 (deterministic OIDs via fixed author dates):
 
 ```bash
-npm run bundles:gen   # builds all exercises/<id>/<id>.bundle (also runs as postinstall)
+npm run bundles:gen   # builds the bundles of every exercise (also runs as postinstall)
 ```
 
-A `bundle.yaml` reads like a sequence of git commands:
+A `bundle.yaml` reads like a sequence of git commands and may use the `${vars}` of the texts
+files (file names, contents, commit messages). The generator then builds the bundle **once per
+language** and writes it to the substituted `provisioning.bundle` path of the structure — which
+therefore contains `${locale}` whenever the rendered history differs between languages
+(identical histories share one file; a collision is reported):
 
 ```yaml
+# exercise.yaml
+provisioning:
+  bundle: ./feature-branch-merge.${locale}.bundle   # -> feature-branch-merge.de-DE.bundle, …
+
+# bundle.yaml
 defaultBranch: main
 head: main              # branch HEAD ends up on
 ops:
   - commit: Init Repo
-    files: { README.md: "# Projekt\n" }
+    files: { README.md: "${readme}" }
   - branch: feature     # create a branch at the current HEAD (no switch)
-  - commit: Hinweise in main ergaenzen
-    files: { NOTES.md: "Hinweise fuer main.\n" }
+  - commit: ${commitNotes}
+    files: { NOTES.md: "${notesContent}" }
   - switch: feature
   - commit: Add feature
     files: { feature.js: "console.log('feature');\n" }
@@ -290,7 +388,7 @@ ops:
 
 A **new exercise** just gets its own `bundle.yaml` in the exercise folder — the generator finds it
 automatically. Transient starting state (uncommitted changes, detached HEAD, half-finished rebase)
-does **not** belong in the bundle but in the `setup:` field of the `exercise.yaml`.
+does **not** belong in the bundle but in the `setup:` field of the structure.
 
 ### Exercise with no repo at all
 
@@ -298,12 +396,25 @@ For example a `git init` exercise: set `provisioning: {}` (no `bundle`) in the
 `exercise.yaml` and create **no** `bundle.yaml`. The sandbox then starts as an empty directory; see
 `exercises/git-init-repo/`.
 
+### Adding a language
+
+1. Copy an existing texts file to `i18n/<tag>.yaml`, set its `locale`, translate title, intro,
+   debrief, steps, pitfalls — and the `vars` (file names, commit messages, branch names).
+2. `npm run bundles:gen` (new per-language bundles, if the package has a `bundle.yaml`).
+3. `npm test` — the package test loads every package in every UI locale.
+
+The exercise texts can be in any locale; the **UI** itself speaks the languages that have message
+catalogs (`src/electron/shared/i18n/ui.ts`, `src/electron/main/i18n.ts`, checklist texts in
+`src/core/i18n/assertionMessages.ts`). Adding a UI language means adding the tag to `UI_LOCALES`
+and filling the three catalogs — the compiler reports every missing key.
+
 ### Unlocking exercises with a code (gating)
 
 Optionally an exercise can be **locked** until the
-learner enters a code the trainer announces in the workshop — this controls the pace. The YAML
+learner enters a code the trainer announces in the workshop — this controls the pace. The structure
 stores **only a salted SHA-256 hash** of the code, never the plaintext (the repo is public → a
-plaintext code could be looked up there). Generate the block:
+plaintext code could be looked up there). The gate is language-neutral: one code per exercise,
+whatever the language. Generate the block:
 
 ```bash
 npm run unlock:gen -- "MY-CODE"   # prints the unlock: block with a fresh salt

@@ -1,0 +1,52 @@
+# yaml-language-server: $schema=./texts.schema.json
+schemaVersion: 1
+locale: en-US
+title: Create a bare repository as a remote and push to it
+intro: >
+  A *bare* repository has no working area – only the `.git` database. That is exactly
+  what serves as a server/remote: you `push` commits there and fetch them from there.
+  A remote is just a named reference to such another repository.
+debrief: >
+  You attached a bare repo as a remote and pushed commits to it. At its core that is
+  how GitHub/GitLab work too – just a bare repository on a server. "bare" = no
+  worktree, which is why pushing into it is safe.
+
+vars:
+  readmeTitle: "# My project"
+  commitInitial: Initial version
+  commitImportant: Important commit
+
+steps:
+  init-bare:
+    title: Create a bare repository
+    task: |
+      A "bare" repository has NO working directory – it serves as the server/remote
+      you push to. Create a bare repository named remote.git next to the project (in
+      the parent folder).
+
+      Tip: the path ../remote.git is one level above the current working repo.
+    hints:
+      - A bare repository is created with  git init --bare <path>.
+      - It should be called ../remote.git (one level above the current directory).
+      - "Solution:  git init --bare ../remote.git"
+
+  add-remote:
+    title: Connect the remote
+    task: |
+      Connect your working repository to the bare repository. The remote should carry
+      the usual name origin and point to ../remote.git.
+    hints:
+      - A remote is added with  git remote add <name> <path>.
+      - The usual name is origin, the path ../remote.git.
+      - "Solution:  git remote add origin ../remote.git"
+
+  push:
+    title: Push the content
+    task: |
+      Transfer the branch main with its whole history to the remote origin.
+      Afterwards the commit "${commitImportant}" has arrived in the bare repository
+      (visible via the remote-tracking branch origin/main).
+    hints:
+      - Pushing works with  git push <remote> <branch>.
+      - With  -u  origin/main is also set as the upstream.
+      - "Solution:  git push -u origin main"

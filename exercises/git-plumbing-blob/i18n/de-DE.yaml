@@ -1,0 +1,43 @@
+# yaml-language-server: $schema=./texts.schema.json
+schemaVersion: 1
+locale: de-DE
+title: Plumbing - Blobs schreiben und lesen
+intro: >
+  Unter der Haube speichert Git Dateiinhalte als `blob`-Objekte, adressiert über ihren
+  SHA-1. `git hash-object -w` schreibt einen Inhalt direkt als Blob in die
+  Objektdatenbank – ohne Commit, ohne Staging.
+debrief: >
+  Du hast Gits unterste Ebene berührt: Inhalt rein (`hash-object`), über den Hash wieder
+  raus (`cat-file`). Commits, Trees und Branches sind nur **Schichten** über genau diesen
+  Objekten. Gleicher Inhalt → gleicher Hash → genau ein Blob (Deduplizierung).
+
+vars:
+  letterFile: brief.txt
+  letterContent: Hallo Git
+
+steps:
+  write-blob:
+    title: Inhalt als Blob speichern
+    task: |
+      Git speichert Dateiinhalte als "Blob"-Objekte in seiner Objektdatenbank.
+      Schreibe den Inhalt von ${letterFile} als Blob in die Datenbank (nicht nur den
+      Hash berechnen, sondern wirklich speichern).
+
+      Danach existiert ein Blob-Objekt, und du bekommst dessen OID (Hash) ausgegeben.
+    hints:
+      - Der Plumbing-Befehl zum Hashen heißt  git hash-object.
+      - Ohne Schreiben wird nur der Hash berechnet; mit  -w  wird der Blob gespeichert.
+      - "Lösung:  git hash-object -w ${letterFile}"
+
+  read-blob:
+    title: Blob wieder auslesen
+    task: |
+      Lies den eben gespeicherten Blob wieder aus der Objektdatenbank aus und gib
+      seinen Inhalt aus. Verwende die OID aus dem vorherigen Schritt.
+
+      (Dieser Schritt ist rein lesend und hinterlässt keinen neuen Zustand - geprüft
+      wird daher, dass du den richtigen Plumbing-Befehl ausgeführt hast.)
+    hints:
+      - Der Plumbing-Befehl zum Anzeigen von Objekten heißt  git cat-file.
+      - Mit  -p  (pretty-print) wird der Inhalt typgerecht ausgegeben.
+      - "Lösung:  git cat-file -p <OID>   (OID aus Schritt 1)"

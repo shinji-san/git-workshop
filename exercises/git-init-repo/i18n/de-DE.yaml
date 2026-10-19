@@ -1,0 +1,28 @@
+# yaml-language-server: $schema=./texts.schema.json
+# Deutsche Texte zur Struktur in ../exercise.yaml (Schritte und Pitfalls über ihre Id verknüpft).
+schemaVersion: 1
+locale: de-DE
+title: Ein Git-Repository initialisieren
+intro: >
+  Ein Git-Repository ist nichts Magisches: `git init` legt nur ein verstecktes
+  Verzeichnis `.git/` an, in dem Git ab jetzt jede Version deiner Dateien speichert.
+  Vorher ist ein Ordner für Git unsichtbar – danach ein Projekt mit Historie.
+debrief: >
+  Du hast aus einem gewöhnlichen Ordner ein Git-Repository gemacht. Alles, was Git
+  über das Projekt weiß, liegt in `.git/` – löschst du den Ordner, ist nur die
+  Versionsverwaltung weg, deine Dateien bleiben. `git init` brauchst du genau
+  **einmal** pro Projekt.
+
+steps:
+  init-repo:
+    title: Repository anlegen
+    task: |
+      Das aktuelle Verzeichnis ist noch leer und kein Git-Repository.
+      Initialisiere hier ein neues Git-Repository.
+
+      Danach gibt es einen .git-Ordner, und HEAD zeigt auf einen Branch,
+      der noch keinen Commit hat (ein "ungeborener" Branch).
+    hints:
+      - Mit welchem Befehl legt man ein neues Git-Repository im aktuellen Ordner an?
+      - Der Befehl besteht aus genau zwei Wörtern.
+      - "Lösung:  git init"

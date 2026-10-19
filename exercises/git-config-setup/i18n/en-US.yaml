@@ -1,0 +1,72 @@
+# yaml-language-server: $schema=./texts.schema.json
+schemaVersion: 1
+locale: en-US
+title: Configure Git, commit, and check the author
+intro: >
+  Every commit carries an author – name and e-mail. Git does not pick them up by
+  itself, you have to set them. `git config` writes such settings; `--global` applies
+  to all your repositories instead of just the current one. In a moment you will
+  commit a file and find your identity inside the commit.
+debrief: >
+  You gave Git your identity and found it right inside the commit: `git show` and
+  `git log` show the **author** and the **date**, which are stored **immutably** in
+  the commit – they are part of the history, not mere display. With `--global` you
+  set the identity once per machine.
+
+# Localized values of the sandbox (setup, goals, bundle) and of these texts.
+vars:
+  noteFile: note.txt
+  noteContent: This is a test note.
+  commitMessage: Add note
+  readme: "# Configuration exercise\n\nIn this exercise you set up your git identity.\n"
+
+steps:
+  set-identity:
+    title: Set your identity (name & e-mail)
+    task: |
+      Set your git identity for this repository:
+
+      - Name: Ada Lovelace
+      - E-mail: ada@example.org
+
+      These values become the author of every future commit.
+    hints:
+      - Settings for this repository are set with  git config <key> <value>.
+      - Values containing spaces belong in quotes.
+      - 'Name:   git config user.name "Ada Lovelace"'
+      - "E-mail: git config user.email ada@example.org"
+
+  set-default-branch:
+    title: Change the default branch name
+    task: |
+      Set the key init.defaultBranch for this repository to "develop"
+      (that is the branch name git uses for new repositories).
+    hints:
+      - The key is called  init.defaultBranch.
+      - "Solution:  git config init.defaultBranch develop"
+
+  commit-file:
+    title: Commit an existing file
+    task: |
+      The working directory already contains the file `${noteFile}`, which is not
+      versioned yet. Stage it and commit it with the message **"${commitMessage}"**.
+
+      Because you just set your identity, this commit automatically carries
+      Ada Lovelace as its author.
+    hints:
+      - First add the file to the staging area -  git add ${noteFile}.
+      - Then commit with a message -  git commit -m "<message>".
+      - 'Solution:  git add ${noteFile}  and then  git commit -m "${commitMessage}"'
+
+  inspect-commit:
+    title: Inspect the commit (author & date)
+    task: |
+      Look at the commit you just created – it contains the **author** and the **date**.
+      Use `git show` (shows the latest commit) or `git log`.
+
+      Look for the line `Author: Ada Lovelace <ada@example.org>` and the date.
+      (If a pager opens, leave it with `q`.)
+    hints:
+      - "`git show HEAD`  shows the latest commit with author, date and changes."
+      - "`git log`  lists the commits, each with author and date."
+      - "Solution:  git show   (or:  git log)"

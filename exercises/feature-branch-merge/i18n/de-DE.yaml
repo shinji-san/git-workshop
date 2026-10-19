@@ -1,0 +1,46 @@
+# yaml-language-server: $schema=./texts.schema.json
+schemaVersion: 1
+locale: de-DE
+title: Feature-Branch in main mergen
+intro: >
+  Ein Branch ist nur ein **beweglicher Zeiger** auf einen Commit – kein Kopieren von
+  Dateien. Auf einem Feature-Branch arbeitest du parallel zur Hauptlinie; ein `merge`
+  führt beide Linien später wieder zusammen.
+debrief: >
+  Du hast zwei Entwicklungslinien zusammengeführt. Der Merge-Commit hat **zwei Eltern** –
+  im Graph siehst du, wie die Linien zusammenlaufen. Branches sind billig, weil sie nur
+  Zeiger sind: nutze sie großzügig.
+
+# Lokalisierte Inhalte der Start-Historie (bundle.yaml).
+vars:
+  readme: "# Projekt\n"
+  notesContent: "Hinweise fuer main.\n"
+  commitNotes: Hinweise in main ergaenzen
+
+steps:
+  review-feature:
+    title: Den feature-Branch ansehen
+    task: |
+      Auf dem Branch "feature" liegt fertige Arbeit, während "main" inzwischen
+      weitergelaufen ist. Wechsle auf "feature", um dir die Arbeit anzusehen.
+    hints:
+      - Mit welchem Befehl wechselt man auf einen bestehenden Branch?
+      - Schau dir  git switch  an (ohne  -c , der Branch existiert schon).
+      - "Lösung:  git switch feature"
+
+  merge-back:
+    title: feature in main mergen
+    task: |
+      Wechsle zurück nach main und merge feature hinein. Weil beide Branches
+      divergiert sind, entsteht dabei ein echter Merge-Commit (zwei Eltern).
+    hints:
+      - Erst auf main wechseln, dann von dort aus mergen.
+      - "Lösung:  git switch main  und danach  git merge feature"
+
+pitfalls:
+  detached-head:
+    message: Du bist im detached-HEAD-Zustand – Commits hängen hier an keinem Branch.
+    recovery: "Zurück mit:  git switch main"
+  merge-direction-reversed:
+    message: Du hast main in feature gemergt – die Richtung ist umgekehrt.
+    recovery: feature zurücksetzen, auf main wechseln und erneut mergen.

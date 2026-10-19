@@ -1,0 +1,72 @@
+# yaml-language-server: $schema=./texts.schema.json
+schemaVersion: 1
+locale: de-DE
+title: Git konfigurieren, committen und den Autor prüfen
+intro: >
+  Jeder Commit trägt einen Autor – Name und E-Mail. Git nimmt die nicht automatisch,
+  du musst sie setzen. `git config` schreibt solche Einstellungen; `--global` gilt für
+  alle deine Repositories, ohne nur fürs aktuelle. Gleich committest du eine Datei und
+  findest deine Identität im Commit wieder.
+debrief: >
+  Du hast Git deine Identität gesetzt und sie direkt im Commit wiedergefunden:
+  `git show` und `git log` zeigen **Autor** und **Datum**, die **unveränderlich** im
+  Commit stehen – sie sind Teil der Historie, nicht bloß Anzeige. Mit `--global` machst
+  du die Identität pro Rechner nur einmal.
+
+# Lokalisierte Werte der Sandbox (Setup, Ziele, Bundle) und dieser Texte.
+vars:
+  noteFile: notiz.txt
+  noteContent: Das ist eine Test-Notiz.
+  commitMessage: Notiz angelegt
+  readme: "# Konfigurations-Uebung\n\nIn dieser Uebung richtest du deine git-Identitaet ein.\n"
+
+steps:
+  set-identity:
+    title: Identität setzen (Name & E-Mail)
+    task: |
+      Lege deine git-Identität für dieses Repository fest:
+
+      - Name: Ada Lovelace
+      - E-Mail: ada@example.org
+
+      Diese Werte landen in jedem zukünftigen Commit als Autor.
+    hints:
+      - Einstellungen für dieses Repository setzt man mit  git config <schlüssel> <wert>.
+      - Werte mit Leerzeichen gehören in Anführungszeichen.
+      - 'Name:   git config user.name "Ada Lovelace"'
+      - "E-Mail: git config user.email ada@example.org"
+
+  set-default-branch:
+    title: Default-Branch-Namen ändern
+    task: |
+      Setze den Schlüssel init.defaultBranch für dieses Repository auf "develop"
+      (das ist der Branch-Name, den git für neue Repositorys verwendet).
+    hints:
+      - Der Schlüssel heißt  init.defaultBranch.
+      - "Lösung:  git config init.defaultBranch develop"
+
+  commit-file:
+    title: Vorhandene Datei committen
+    task: |
+      Im Arbeitsverzeichnis liegt bereits die Datei `${noteFile}`, die noch nicht
+      versioniert ist. Stage sie und committe sie mit der Nachricht **„${commitMessage}"**.
+
+      Weil du gerade deine Identität gesetzt hast, trägt dieser Commit automatisch
+      Ada Lovelace als Autor.
+    hints:
+      - Zuerst die Datei zur Staging-Area hinzufügen -  git add ${noteFile}.
+      - Dann committen mit Nachricht -  git commit -m "<Nachricht>".
+      - 'Lösung:  git add ${noteFile}  und danach  git commit -m "${commitMessage}"'
+
+  inspect-commit:
+    title: Commit ansehen (Autor & Datum)
+    task: |
+      Sieh dir den eben erstellten Commit an – darin stehen **Autor** und **Datum**.
+      Verwende `git show` (zeigt den jüngsten Commit) oder `git log`.
+
+      Achte auf die Zeile `Author: Ada Lovelace <ada@example.org>` und das Datum.
+      (Falls ein Pager öffnet, verlässt du ihn mit `q`.)
+    hints:
+      - "`git show HEAD`  zeigt den jüngsten Commit mit Autor, Datum und Änderungen."
+      - "`git log`  listet die Commits, jeweils mit Autor und Datum."
+      - "Lösung:  git show   (oder:  git log)"

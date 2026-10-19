@@ -33,29 +33,33 @@ src/
                         #   compareChapters (chapter sorting)
     validation/         #   evaluators (one per assertion), evaluateStep, matchPitfalls
     graph/              #   pure railroad layout algorithm (layout.ts), GraphLayout types
+    i18n/               #   Locale (BCP 47 tags, resolveLocale), assertionMessages (checklist texts per UI locale)
     ports/              #   interfaces: IGitInspector, ITerminalSession, ISandboxManager,
                         #   IExerciseRepository, IProgressStore, IClock
   application/          # use cases + runtime carrier
     SessionContext.ts   #   transient state (sandbox, revealed hints, stuck clock)
     use-cases/          #   StartExercise, ResumeExercise, PauseExercise, CompleteExercise,
-                        #   ProcessRepoChange, ResetExercise, RequestHint, UnlockExercises
+                        #   ProcessRepoChange, ResetExercise, RequestHint, UnlockExercises,
+                        #   RelocalizeExercise (live language switch of a running attempt)
   infrastructure/       # adapters (know Node/Git, implement the ports)
     git/                #   GitRunner (spawn, argv), ShellRunner, parsers (pure),
                         #   trace2 (GIT_TRACE2 parser, pure), GitInspector
     sandbox/            #   env (pure), SandboxManager (incl. snapshots)
-    exercise/           #   schema (Zod), FileExerciseRepository, unlockCode (salted hash, pure-ish)
+    exercise/           #   schema (Zod: structure + texts), FileExerciseRepository (locale resolution,
+                        #   structure/texts merge), placeholders (${vars}, pure), unlockCode (salted hash)
     progress/           #   FileProgressStore (~/.git-workshop/progress.json)
     SystemClock.ts
   electron/             # desktop shell (Electron/xterm/d3/PTY live ONLY here)
     main/               #   main.ts (windows, menu, export/about, theme, IPC),
                         #   SessionController.ts (session runtime: PTY, watcher, ticks, progress,
-                        #   timer, unlock guard), settings.ts (theme + devTools + unlockAll),
-                        #   composition.ts (composition root), Debounced.ts
+                        #   timer, unlock guard, locale), settings.ts (theme + locale + devTools +
+                        #   unlockAll), i18n.ts (main catalogs: menu/dialogs), composition.ts, Debounced.ts
     preload/            #   thin contextBridge
-    shared/             #   ipc-contract.ts (single source for Main↔Renderer)
+    shared/             #   ipc-contract.ts (single source for Main↔Renderer), i18n/ui.ts (renderer catalogs)
     renderer-console/   #   xterm + task panel + status bar (timer); richtext.ts (safe formatter)
     renderer-graph/     #   d3 commit graph (zoom/pan, PNG export); copy.ts (clipboard targets)
-exercises/
+exercises/              # one package per exercise: exercise.yaml (language-neutral structure) +
+                        # i18n/<locale>.yaml (texts + vars per language) + optional bundle.yaml
   git-init-repo/        #   git init (1.0): no bundle, starts as an empty directory
   git-config-setup/     #   config + commit + inspect (1.1)
   feature-branch-merge/ #   merge (2.0): exercise.yaml + bundle.yaml (+ generated schema/.bundle)
@@ -64,8 +68,8 @@ exercises/
   git-reflog-rescue/    #   reflog recovery (5.0): hard-reset, rescue a lost commit as a branch
   git-gc-prune/         #   garbage collection (5.1): remove orphaned commits via gc --prune=now
 scripts/
-  generate-schema.ts    #   Zod → JSON schema (into every exercise package)
-  generate-bundles.ts   #   scans exercises/*/bundle.yaml and builds the bundles
+  generate-schema.ts    #   Zod → JSON schemas (exercise.schema.json + i18n/texts.schema.json per package)
+  generate-bundles.ts   #   scans exercises/*/bundle.yaml and builds the bundles (one per locale with ${vars})
   generate-icon.ts      #   build/icon.svg → build/icon.png
   gen-unlock.ts         #   prints an unlock: block (salted hash) from a plaintext code
   clean.ts              #   removes build outputs + caches (npm run clean / clean:deep)
@@ -341,8 +345,38 @@ domain) and resolves relative bundle paths. Validation via **Zod** (one source f
 *and* the type; `discriminatedUnion`). A **JSON schema** is generated from the Zod schema; the YAML
 references it via `# yaml-language-server: $schema=…` → validation/autocomplete **while typing** in
 the editor. A `schemaVersion` field allows later migration. An exercise package is a **folder**
-(`exercise.yaml` + `bundle.yaml` + schema, with the `.bundle` generated from it) with relative paths
-→ freely movable across the 76 machines.
+(`exercise.yaml` structure + `i18n/<locale>.yaml` texts + `bundle.yaml` + schemas, with the
+`.bundle` files generated per locale) with relative paths → freely movable across the 76 machines.
+
+### Internationalization (i18n)
+
+Locales are **BCP 47 tags** (ISO 639-1 language + ISO 3166-1 region, e.g. `de-DE`, `en-US`),
+resolved by the pure `core/i18n/Locale.ts`: exact tag → same language → `DEFAULT_LOCALE` (`de-DE`)
+→ first available. Three layers, three catalogs, all **typed for completeness** (a missing key in
+one language does not compile):
+
+1. **Exercise content** is split into a language-neutral **structure** (`exercise.yaml`: ids,
+   goals, pitfall conditions, provisioning, unlock) and one **texts** file per locale
+   (`i18n/<locale>.yaml`: title/intro/debrief, per-step title/task/hints, per-pitfall
+   message/recovery, keyed by id). Localized *values* (branch/file names, commit messages) are
+   `vars` of the texts file, substituted as `${name}` into structure, texts and `bundle.yaml`
+   (`placeholders.ts`, pure; `${locale}`/`${lang}` built in). `FileExerciseRepository` merges both
+   into the resolved domain `Exercise`, which therefore carries **two locales**: `locale` (texts)
+   and `contentLocale` (the vars the sandbox was built with). They differ only after a resume or a
+   live switch — `ParticipantProgress` records the content locale on pause so goals keep matching
+   the already-provisioned sandbox, and `RelocalizeExercise` swaps only the texts of a running
+   attempt (`SessionContext.relocalized`). Bundles are generated per locale when `bundle.yaml` uses
+   vars (`provisioning.bundle` then contains `${locale}`).
+2. **Checklist texts** of the verdict come from `core/i18n/assertionMessages.ts` (one catalog per
+   UI locale, mapped over `AssertionType`); `evaluate()` takes the locale, `holds()` is the
+   text-free predicate used for pitfalls.
+3. **UI chrome**: renderer strings in `electron/shared/i18n/ui.ts` (both windows), main-process
+   strings (menu, dialogs, context menus, thrown participant-facing errors) in
+   `electron/main/i18n.ts`. The effective UI locale = settings `"locale"` (`system` → Electron's
+   `app.getLocale()`), pushed over IPC (`locale:get`/`locale:changed`); the renderers re-label
+   static elements in `applyLocale()`, the controller relocalizes the session and re-ticks.
+
+Author-facing diagnostics (YAML validation errors) stay German, as before.
 
 ---
 
@@ -353,8 +387,10 @@ the editor. A `schemaVersion` field allows later migration. An exercise package 
 - **Git scope:** the `git-workshop` directory is **its own git repo on branch `develop`**. Stage
   only this repo's own files — the parent `MyTests` working tree has unrelated changes that must not
   be swept in. Branch before committing if on the default branch.
-- **Comment/string language:** **code comments in English.** German only for participant-facing UI
-  strings, thrown error messages (shown to participants), and exercise/bundle YAML content.
+- **Comment/string language:** **code comments in English.** Participant-facing UI strings live in
+  the i18n **catalogs** (`de-DE` **and** `en-US`, both filled — never a literal in a renderer or in
+  main). Author-facing YAML diagnostics stay German. YAML: comments in `exercise.yaml`/`bundle.yaml`
+  in German, each `i18n/<locale>.yaml` in its own language.
 - **UUIDs:** use **real UUIDs**, never patterned placeholders — including in tests.
 - **App-level actions** belong in the **application menu**, not as extra in-window buttons.
 - **Secrets in a public repo:** the repo is public and exercise `hints` already contain solutions, so
@@ -375,9 +411,9 @@ the editor. A `schemaVersion` field allows later migration. An exercise package 
 ## Extension guide
 
 - **Add a new assertion:** add the union member in `core/domain/Assertion.ts` → the compiler then
-  forces an entry in `predicates` **and** `details` in `core/validation/evaluators.ts` → add the
-  same case in `src/infrastructure/exercise/schema.ts` (`discriminatedUnion`) → `npm run schema:gen`
-  → add a test in `test/core/evaluators.test.ts`.
+  forces a predicate in `core/validation/evaluators.ts` **and** a checklist text per UI locale in
+  `core/i18n/assertionMessages.ts` → add the same case in `src/infrastructure/exercise/schema.ts`
+  (`discriminatedUnion`) → `npm run schema:gen` → add a test in `test/core/evaluators.test.ts`.
 - **Keep purity:** never import Node/Electron/Git in `core/`. IO in `infrastructure`, wiring in
   `electron/main/composition.ts`.
 - **New use cases:** as their own class in `application/use-cases/`, depending only on ports. IPC
@@ -388,6 +424,11 @@ the editor. A `schemaVersion` field allows later migration. An exercise package 
   `renderer-graph/`.
 - **Gate an exercise:** `npm run unlock:gen -- "CODE"`, paste the `unlock:` block into the
   `exercise.yaml`, keep the plaintext code to announce it.
+- **Translate an exercise:** add `i18n/<tag>.yaml` (title, intro, debrief, steps, pitfalls, vars),
+  `npm run bundles:gen`, `npm test` (`packages.test.ts` loads every package in every UI locale).
+- **Add a UI language:** add the tag to `UI_LOCALES` (`core/i18n/Locale.ts`) and fill the three
+  catalogs (`assertionMessages.ts`, `shared/i18n/ui.ts`, `main/i18n.ts`) plus `LANGUAGE_NAMES`; the
+  compiler lists every missing key. Ship `i18n/<tag>.yaml` for the exercises.
 
 ---
 
@@ -408,10 +449,12 @@ Run with the Node 22 toolchain on PATH (`export PATH="$HOME/.local/node22/bin:$P
 
 ## Known state / open points
 
-- **Pure core: fully implemented and tested** (`npm test` — currently 112 green: domain aggregate,
+- **Pure core: fully implemented and tested** (`npm test` — currently 139 green: domain aggregate,
   `ParticipantProgress`/`resumeAt`/unlock, pause/complete/unlock use cases, evaluators (incl.
   plumbing checks), layout, parsers (incl. objects/index/trace2), sandbox env, snapshot round-trip,
-  schema validation, chapter sorting, file slug, application tick, copy targets, rich text).
+  schema validation (structure + texts), locale resolution, assertion catalogs, placeholders, the
+  exercise repository (fallback, content locale, author errors), every shipped package in every UI
+  locale, relocalization, chapter sorting, file slug, application tick, copy targets, rich text).
   `npm run typecheck:core` is clean; `schema:gen`/`bundles:gen` produce their artifacts.
 - **Electron shell (`src/electron/`):** builds (`npm run build`) and runs (`npm run dev`). Needs a
   desktop environment + native modules. The full packaging run (`npm run dist:*`, AppImage/NSIS)

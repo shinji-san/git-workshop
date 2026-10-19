@@ -1,0 +1,52 @@
+# yaml-language-server: $schema=./texts.schema.json
+schemaVersion: 1
+locale: de-DE
+title: Bare-Repository als Remote anlegen und pushen
+intro: >
+  Ein *bare* Repository hat keinen Arbeitsbereich – nur die `.git`-Datenbank. Genau das
+  nutzt man als Server/Remote: man `push`t Commits dorthin und holt sie von dort. Ein
+  Remote ist nur ein benannter Verweis auf so ein anderes Repository.
+debrief: >
+  Du hast ein bare Repo als Remote angebunden und Commits gepusht. So funktioniert auch
+  GitHub/GitLab im Kern – nur ein bare Repository auf einem Server. "bare" = kein
+  Worktree, deshalb kann man gefahrlos hineinpushen.
+
+vars:
+  readmeTitle: "# Mein Projekt"
+  commitInitial: Initiale Version
+  commitImportant: Wichtiger Commit
+
+steps:
+  init-bare:
+    title: Bare-Repository anlegen
+    task: |
+      Ein "bare" Repository hat KEIN Arbeitsverzeichnis – es dient als Server/Remote,
+      auf den man pusht. Lege neben dem Projekt (im übergeordneten Ordner) ein bare
+      Repository namens remote.git an.
+
+      Tipp: Der Pfad ../remote.git liegt eine Ebene über dem aktuellen Arbeits-Repo.
+    hints:
+      - Ein bare Repository legt man mit  git init --bare <pfad>  an.
+      - Es soll ../remote.git heißen (eine Ebene höher als das aktuelle Verzeichnis).
+      - "Lösung:  git init --bare ../remote.git"
+
+  add-remote:
+    title: Remote verbinden
+    task: |
+      Verbinde dein Arbeits-Repository mit dem Bare-Repository. Die Fernverbindung
+      soll den üblichen Namen origin tragen und auf ../remote.git zeigen.
+    hints:
+      - Eine Fernverbindung fügt man mit  git remote add <name> <pfad>  hinzu.
+      - Der übliche Name ist origin, der Pfad ../remote.git.
+      - "Lösung:  git remote add origin ../remote.git"
+
+  push:
+    title: Inhalt pushen
+    task: |
+      Übertrage den Branch main mit der gesamten Historie zum Remote origin.
+      Danach ist der Commit "${commitImportant}" im Bare-Repository angekommen
+      (sichtbar über den Remote-Tracking-Branch origin/main).
+    hints:
+      - Pushen geht mit  git push <remote> <branch>.
+      - Mit  -u  wird origin/main zugleich als Upstream gesetzt.
+      - "Lösung:  git push -u origin main"

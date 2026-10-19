@@ -1,0 +1,46 @@
+# yaml-language-server: $schema=./texts.schema.json
+schemaVersion: 1
+locale: en-US
+title: Merge a feature branch into main
+intro: >
+  A branch is just a **movable pointer** to a commit – no files are copied. On a
+  feature branch you work in parallel to the main line; a `merge` later brings both
+  lines back together.
+debrief: >
+  You joined two lines of development. The merge commit has **two parents** – in the
+  graph you can see the lines converge. Branches are cheap because they are only
+  pointers: use them generously.
+
+# Localized contents of the starting history (bundle.yaml).
+vars:
+  readme: "# Project\n"
+  notesContent: "Notes for main.\n"
+  commitNotes: Add notes on main
+
+steps:
+  review-feature:
+    title: Look at the feature branch
+    task: |
+      The branch "feature" holds finished work, while "main" has moved on in the
+      meantime. Switch to "feature" to look at the work.
+    hints:
+      - Which command switches to an existing branch?
+      - Have a look at  git switch  (without  -c , the branch already exists).
+      - "Solution:  git switch feature"
+
+  merge-back:
+    title: Merge feature into main
+    task: |
+      Switch back to main and merge feature into it. Because both branches have
+      diverged, this creates a real merge commit (two parents).
+    hints:
+      - Switch to main first, then merge from there.
+      - "Solution:  git switch main  and then  git merge feature"
+
+pitfalls:
+  detached-head:
+    message: You are in detached-HEAD state – commits made here belong to no branch.
+    recovery: "Get back with:  git switch main"
+  merge-direction-reversed:
+    message: You merged main into feature – the direction is reversed.
+    recovery: Reset feature, switch to main and merge again.

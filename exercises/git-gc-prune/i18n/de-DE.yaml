@@ -1,0 +1,36 @@
+# yaml-language-server: $schema=./texts.schema.json
+schemaVersion: 1
+locale: de-DE
+title: Verwaiste Commits mit dem Garbage Collector entfernen
+intro: >
+  Unerreichbare (verwaiste) Objekte räumt Git irgendwann selbst weg – der *Garbage
+  Collector*. Aus Sicherheit schont er frische Objekte aber wochenlang (Schonfrist),
+  damit ein Reflog-Rescue noch geht. Für sofortiges Aufräumen musst du die Schonfrist
+  ausdrücklich übergehen.
+debrief: >
+  Mit `git gc --prune=now` sind die verwaisten Commits **endgültig** weg – auch übers
+  Reflog nicht mehr zu retten. Genau deshalb ist die Schonfrist der Standard: das
+  Sicherheitsnetz, das du hier bewusst ausgehängt hast.
+
+vars:
+  file: datei.txt
+  content: Inhalt
+  commitBase: Basis-Commit
+  orphanA: Verwaiste Arbeit A
+  orphanB: Verwaiste Arbeit B
+
+steps:
+  gc-prune:
+    title: Verwaiste Commits einsammeln
+    task: |
+      Im Repository liegen verwaiste Commits (siehe Graph: orphans, von keinem
+      Branch erreichbar). Normalerweise räumt Git solche Objekte irgendwann selbst
+      weg – rufe den Garbage Collector jetzt so auf, dass die verwaisten Commits
+      SOFORT entfernt werden.
+
+      Achtung: Ein einfaches `git gc` schont kürzlich entstandene Objekte (Standard:
+      ~2 Wochen Schonfrist). Du musst das Aufräumen also ausdrücklich erzwingen.
+    hints:
+      - Der Garbage Collector heißt  git gc.
+      - Mit  --prune=<zeit>  steuerst du, ab wann unerreichbare Objekte entfernt werden.
+      - "Lösung:  git gc --prune=now"

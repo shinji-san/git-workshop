@@ -1,0 +1,27 @@
+# yaml-language-server: $schema=./texts.schema.json
+# English texts for the structure in ../exercise.yaml (steps and pitfalls are joined by id).
+schemaVersion: 1
+locale: en-US
+title: Initialize a Git repository
+intro: >
+  A Git repository is nothing magical: `git init` only creates a hidden `.git/`
+  directory in which Git stores every version of your files from now on. Before,
+  a folder is invisible to Git – afterwards it is a project with a history.
+debrief: >
+  You turned an ordinary folder into a Git repository. Everything Git knows about
+  the project lives in `.git/` – delete that folder and only the version control is
+  gone, your files stay. You need `git init` exactly **once** per project.
+
+steps:
+  init-repo:
+    title: Create the repository
+    task: |
+      The current directory is still empty and not a Git repository.
+      Initialize a new Git repository here.
+
+      Afterwards there is a .git folder, and HEAD points to a branch that
+      has no commit yet (an "unborn" branch).
+    hints:
+      - Which command creates a new Git repository in the current folder?
+      - The command consists of exactly two words.
+      - "Solution:  git init"
