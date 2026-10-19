@@ -2,12 +2,18 @@ import * as d3 from 'd3';
 import type { RendererApi, TickBroadcast, CopyMenuEntry } from '../shared/ipc-contract';
 import type { GraphLayout, PositionedNode, LayoutEdge, RefLabel, CommitDetail } from '../../core/graph/GraphLayout';
 import { copyTargets, copyAll } from './copy';
+import { DEFAULT_LOCALE, Locale, languageOf } from '../../core/i18n/Locale';
+import { uiMessages, UiMessages } from '../shared/i18n/ui';
 
 declare global {
   interface Window {
     api: RendererApi;
   }
 }
+
+// Every visible string comes from the UI catalog `m`; main pushes the effective locale.
+let m: UiMessages = uiMessages(DEFAULT_LOCALE);
+let lastOrphanCount: number | null = null; // to redraw the legend in a new language
 
 const ROW_H = 64;
 const LANE_W = 64;
@@ -207,7 +213,7 @@ function copyIconButton(value: string, label: string): HTMLButtonElement {
  */
 function fillPopup(c: CommitDetail): void {
   popBody.replaceChildren();
-  const targets = new Map(copyTargets(c).map((x) => [x.key, x]));
+  const targets = new Map(copyTargets(c, m).map((x) => [x.key, x]));
   const target = (key: string) => targets.get(key)!; // keys are fixed in copy.ts
 
   // SHA line: short bold + dimmed rest, with a copy button.
@@ -233,10 +239,10 @@ function fillPopup(c: CommitDetail): void {
     if (copy) dd.append(copyIconButton(copy.value, copy.label));
     dl.append(dt, dd);
   };
-  row('Autor', target('author').value, target('author'));
-  row('Autor-Datum', formatGitDate(c.author.date, c.author.tz));
-  row('Committer', target('committer').value, target('committer'));
-  row('Committer-Datum', formatGitDate(c.committer.date, c.committer.tz));
+  row(m.popupAuthor, target('author').value, target('author'));
+  row(m.popupAuthorDate, formatGitDate(c.author.date, c.author.tz));
+  row(m.popupCommitter, target('committer').value, target('committer'));
+  row(m.popupCommitterDate, formatGitDate(c.committer.date, c.committer.tz));
 
   // Message block with a copy button anchored to its top-right corner (outside the scroll area).
   const msgWrap = document.createElement('div');
@@ -252,7 +258,7 @@ function fillPopup(c: CommitDetail): void {
   const all = document.createElement('button');
   all.type = 'button';
   all.className = 'pop-copy-all';
-  wireCopy(all, copyAll(c, formatGitDate), 'Alles kopieren', 'Kopiert ✓');
+  wireCopy(all, copyAll(c, formatGitDate, m), m.popupCopyAll, m.popupCopied);
 
   popBody.append(sha, dl, msgWrap, all);
 }
@@ -286,9 +292,9 @@ function openCopyMenu(oid: string): void {
   if (!c) return;
   hideTip();
   const entries: CopyMenuEntry[] = [
-    ...copyTargets(c).map((t): CopyMenuEntry => ({ type: 'copy', label: t.label, value: t.value })),
+    ...copyTargets(c, m).map((t): CopyMenuEntry => ({ type: 'copy', label: t.label, value: t.value })),
     { type: 'separator' },
-    { type: 'copy', label: 'Alles kopieren', value: copyAll(c, formatGitDate) },
+    { type: 'copy', label: m.popupCopyAll, value: copyAll(c, formatGitDate, m) },
   ];
   void window.api.showCopyMenu(entries);
 }
@@ -415,17 +421,14 @@ function refClass(r: RefLabel): string {
 }
 
 function drawLegend(orphanCount: number): void {
+  lastOrphanCount = orphanCount;
   svg.selectAll('text.legend').remove();
   svg
     .append('text')
     .attr('class', 'legend')
     .attr('x', 12)
     .attr('y', 18)
-    .text(
-      orphanCount > 0
-        ? `${orphanCount} verwaiste${orphanCount === 1 ? 'r' : ''} Commit${orphanCount === 1 ? '' : 's'} – nicht erreichbar`
-        : 'alle Commits erreichbar (keine verwaisten)',
-    );
+    .text(orphanCount > 0 ? m.legendOrphans(orphanCount) : m.legendAllReachable);
 }
 
 /** Remove all nodes, edges and the legend – used when the learner leaves an exercise. */
@@ -435,11 +438,27 @@ function clearGraph(): void {
   gNodes.selectAll('*').remove();
   gEdges.selectAll('*').remove();
   svg.selectAll('text.legend').remove();
+  lastOrphanCount = null;
   svg.call(zoom.transform, d3.zoomIdentity); // reset pan/zoom for the next exercise
 }
 
 window.api.onTick((b: TickBroadcast) => render(b.graph));
 window.api.onGraphClear(clearGraph);
+
+/** Apply a UI locale: swap the catalog, re-label the static chrome and redraw the legend. */
+function applyLocale(locale: Locale): void {
+  m = uiMessages(locale);
+  document.documentElement.lang = languageOf(locale);
+  document.title = m.graphWindowTitle;
+  pop.setAttribute('aria-label', m.popupDialogLabel);
+  const close = document.getElementById('commit-pop-close')!;
+  close.setAttribute('aria-label', m.popupClose);
+  close.title = m.popupClose;
+  closePopup(); // its field labels are baked in; it is rebuilt on the next click
+  if (lastOrphanCount !== null) drawLegend(lastOrphanCount);
+}
+window.api.onLocaleChanged(applyLocale);
+void window.api.getLocale().then(applyLocale);
 
 // --- PNG export -----------------------------------------------------------
 // A standalone serialized SVG carries no external CSS, so we inline EXPORT_CSS (the shared

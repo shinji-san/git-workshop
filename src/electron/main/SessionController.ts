@@ -8,6 +8,8 @@ import { layout } from '../../core/graph/layout';
 import { SessionContext } from '../../application/SessionContext';
 import { ParticipantProgress, ExerciseStatusView } from '../../core/domain/ParticipantProgress';
 import { TRACE2_FILE } from '../../infrastructure/sandbox/env';
+import { DEFAULT_LOCALE, Locale } from '../../core/i18n/Locale';
+import { mainMessages } from './i18n';
 import { StepView, TickBroadcast } from '../shared/ipc-contract';
 
 /** What the controller needs from the windows; main wires this to the renderers. */
@@ -45,6 +47,7 @@ export class SessionController {
   private ptyProcess: pty.IPty | null = null;
   private watcher: FSWatcher | null = null;
   private timerEndsAt: number | null = null; // wall-clock deadline (null = no timer)
+  private locale: Locale = DEFAULT_LOCALE; // effective UI locale; main sets it on start and on every switch
 
   constructor(
     private readonly di: AppServices,
@@ -61,7 +64,7 @@ export class SessionController {
       this.progress = loaded.progress;
       // First run: seed the seen-set with all current exercises so nothing shows as "new".
       if (loaded.created) {
-        this.progress.seedSeen((await this.di.listExercises()).map((e) => e.id));
+        this.progress.seedSeen((await this.di.listExercises(this.locale)).map((e) => e.id));
         await this.persist();
       }
       console.log('[startup] progress ready (created=' + loaded.created + ')');
@@ -72,13 +75,29 @@ export class SessionController {
   }
 
   listExercises() {
-    return this.di.listExercises();
+    return this.di.listExercises(this.locale);
+  }
+
+  /**
+   * Apply a (new) UI locale: listings and newly opened exercises use it from now on, and a running
+   * attempt is relocalized in place – its texts follow the UI while the sandbox keeps the content
+   * locale it was provisioned with (so goals keep matching). Re-broadcasts so the panel re-labels.
+   */
+  async setLocale(locale: Locale): Promise<void> {
+    this.locale = locale;
+    if (!this.session) return;
+    try {
+      this.session = await this.di.relocalizeExercise.execute(this.session, locale);
+      await this.tick();
+    } catch (err) {
+      console.error('[locale] relocalizing the running exercise failed:', err);
+    }
   }
 
   /** Per-exercise status map for the overview badges. Fills in `locked` by combining the exercise's
    *  gated flag (repo) with the unlocked set (progress) and the trainer override (settings). */
   async progressMap(): Promise<{ [id: string]: ExerciseStatusView }> {
-    const summaries = await this.di.listExercises();
+    const summaries = await this.di.listExercises(this.locale);
     if (!this.progress) return {};
     const map = this.progress.statusMap(summaries.map((e) => e.id));
     const open = this.unlockAll();
@@ -92,7 +111,7 @@ export class SessionController {
   /** A gated exercise the learner hasn't unlocked (and no trainer override) cannot be opened. */
   private async isLocked(id: string): Promise<boolean> {
     if (this.unlockAll()) return false;
-    const summary = (await this.di.listExercises()).find((e) => e.id === id);
+    const summary = (await this.di.listExercises(this.locale)).find((e) => e.id === id);
     return !!summary?.gated && !(this.progress?.isUnlocked(id) ?? false);
   }
 
@@ -142,23 +161,24 @@ export class SessionController {
 
   /** Open: resume from a snapshot if one exists, otherwise start fresh. */
   async open(id: string): Promise<void> {
-    if (await this.isLocked(id)) throw new Error('Diese Aufgabe ist noch gesperrt. Bitte zuerst den Freischaltcode eingeben.');
+    if (await this.isLocked(id)) throw new Error(mainMessages(this.locale).lockedError);
     await this.pause(); // never lose an in-progress different exercise
     const rec = this.progress?.getRecord(id);
-    console.log(`[open] ${id} -> ${rec?.snapshotPath ? 'RESUME from ' + rec.snapshotPath : 'fresh start'}`);
+    console.log(`[open] ${id} -> ${rec?.snapshotPath ? 'RESUME from ' + rec.snapshotPath : 'fresh start'} (${this.locale})`);
+    // A snapshot's sandbox was built in the locale recorded on pause; its vars must be reused.
     const ctx = rec?.snapshotPath
-      ? await this.di.resumeExercise.execute(id, rec.snapshotPath, rec.lastStepIndex ?? 0)
-      : await this.di.startExercise.execute(id);
+      ? await this.di.resumeExercise.execute(id, rec.snapshotPath, rec.lastStepIndex ?? 0, this.locale, rec.locale ?? this.locale)
+      : await this.di.startExercise.execute(id, this.locale);
     await this.beginSession(ctx, id, rec?.snapshotPath ? rec.remainingMs : undefined);
   }
 
   /** Restart: drop the snapshot and start from scratch. */
   async restart(id: string): Promise<void> {
-    if (await this.isLocked(id)) throw new Error('Diese Aufgabe ist noch gesperrt. Bitte zuerst den Freischaltcode eingeben.');
+    if (await this.isLocked(id)) throw new Error(mainMessages(this.locale).lockedError);
     await this.pause();
     await this.di.sandboxes.removeSnapshot(id);
     this.progress?.clearSnapshot(id, Date.now());
-    await this.beginSession(await this.di.startExercise.execute(id), id);
+    await this.beginSession(await this.di.startExercise.execute(id, this.locale), id);
   }
 
   /** Reset the current attempt (clone-then-swap) and restart its timer. */

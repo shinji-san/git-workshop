@@ -8,6 +8,7 @@ import { Pitfall } from '../../core/domain/Pitfall';
 import { GraphLayout } from '../../core/graph/GraphLayout';
 import { ExerciseSummary } from '../../core/ports/IExerciseRepository';
 import { ExerciseStatusView } from '../../core/domain/ParticipantProgress';
+import { Locale } from '../../core/i18n/Locale';
 
 export interface StepView {
   readonly title: string;
@@ -71,6 +72,8 @@ export const Channels = {
   timerSet: 'timer:set',
   themeGet: 'theme:get',
   themeChanged: 'theme:changed',
+  localeGet: 'locale:get',
+  localeChanged: 'locale:changed',
   graphOpen: 'graph:open',
   graphClosed: 'graph:closed',
   graphClear: 'graph:clear',
@@ -122,6 +125,10 @@ export interface RendererApi {
   getTheme(): Promise<Theme>;
   /** Fired whenever the effective theme changes (OS switch or menu override). */
   onThemeChanged(cb: (theme: Theme) => void): void;
+  /** Current effective UI locale (BCP 47, e.g. "de-DE"), resolved by main from the OS or the user's override. */
+  getLocale(): Promise<Locale>;
+  /** Fired whenever the effective UI locale changes (menu override). The renderer re-labels itself. */
+  onLocaleChanged(cb: (locale: Locale) => void): void;
   /** Open the (new) graph window. */
   openGraph(): Promise<void>;
   /** Fired when the graph window was closed (the console then shows the open button). */

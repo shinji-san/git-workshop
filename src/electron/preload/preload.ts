@@ -1,5 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron';
 import { Channels, RendererApi, TickBroadcast, Theme, TerminalContextResult, CopyMenuEntry } from '../shared/ipc-contract';
+import type { Locale } from '../../core/i18n/Locale';
 
 /** Narrow, typed bridge. The renderer gets ONLY these functions, no Node. */
 const api: RendererApi = {
@@ -25,6 +26,8 @@ const api: RendererApi = {
   onTimerSet: (cb) => ipcRenderer.on(Channels.timerSet, (_e, remainingSec: number | null) => cb(remainingSec)),
   getTheme: () => ipcRenderer.invoke(Channels.themeGet),
   onThemeChanged: (cb) => ipcRenderer.on(Channels.themeChanged, (_e, theme: Theme) => cb(theme)),
+  getLocale: () => ipcRenderer.invoke(Channels.localeGet),
+  onLocaleChanged: (cb) => ipcRenderer.on(Channels.localeChanged, (_e, locale: Locale) => cb(locale)),
   openGraph: () => ipcRenderer.invoke(Channels.graphOpen),
   onGraphClosed: (cb) => ipcRenderer.on(Channels.graphClosed, () => cb()),
   onGraphClear: (cb) => ipcRenderer.on(Channels.graphClear, () => cb()),

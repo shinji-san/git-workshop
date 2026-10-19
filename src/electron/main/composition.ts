@@ -15,6 +15,8 @@ import { ProcessRepoChange } from '../../application/use-cases/ProcessRepoChange
 import { ResetExercise } from '../../application/use-cases/ResetExercise';
 import { RequestHint } from '../../application/use-cases/RequestHint';
 import { UnlockExercises } from '../../application/use-cases/UnlockExercises';
+import { RelocalizeExercise } from '../../application/use-cases/RelocalizeExercise';
+import { Locale } from '../../core/i18n/Locale';
 
 export interface AppConfig {
   /** Root folder containing the exercise packages. */
@@ -56,7 +58,8 @@ export function composeApp(config: AppConfig) {
     resetExercise: new ResetExercise(sandboxes, clock),
     requestHint: new RequestHint(),
     unlockExercises: new UnlockExercises(repo, progressStore),
-    listExercises: () => repo.list(),
+    relocalizeExercise: new RelocalizeExercise(repo),
+    listExercises: (locale: Locale) => repo.list(locale),
   };
 }
 

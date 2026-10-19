@@ -7,6 +7,8 @@ import type { RendererApi, TickBroadcast, Theme } from '../shared/ipc-contract';
 import type { ExerciseSummary } from '../../core/ports/IExerciseRepository';
 import type { ExerciseStatusView } from '../../core/domain/ParticipantProgress';
 import { compareChapters } from '../../core/domain/compareChapters';
+import { DEFAULT_LOCALE, Locale, languageOf } from '../../core/i18n/Locale';
+import { uiMessages, UiMessages } from '../shared/i18n/ui';
 import { richTextToHtml } from './richtext';
 
 declare global {
@@ -15,6 +17,11 @@ declare global {
   }
 }
 const api = window.api;
+
+// --- Locale ---------------------------------------------------------------
+// main resolves the OS/menu preference to an effective UI locale and pushes it; every string
+// shown here comes from the catalog `m`. Static labels in index.html are (re)applied on change.
+let m: UiMessages = uiMessages(DEFAULT_LOCALE);
 
 // --- Terminal -------------------------------------------------------------
 const term = new Terminal({ fontSize: 13, cursorBlink: true, scrollback: 5000, theme: { background: '#1e1e1e' } });
@@ -147,7 +154,7 @@ async function renderPicker(): Promise<void> {
     ($('unlock-row') as HTMLElement).hidden = !Object.values(progressMap).some((v) => v.locked);
     drawRows();
   } catch (e) {
-    showError(`Aufgaben konnten nicht geladen werden: ${errText(e)}`);
+    showError(`${m.errLoadExercises}: ${errText(e)}`);
   }
 }
 
@@ -164,7 +171,7 @@ function drawRows(): void {
   if (shown.length === 0) {
     const empty = document.createElement('div');
     empty.className = 'picker-empty';
-    empty.textContent = 'Keine Aufgabe gefunden.';
+    empty.textContent = m.noExerciseFound;
     picker.appendChild(empty);
     return;
   }
@@ -182,13 +189,7 @@ function drawRows(): void {
     const open = document.createElement('button');
     open.className = 'exercise-open';
     open.disabled = gateLocked || doneLocked;
-    open.title = gateLocked
-      ? 'Gesperrt – Freischaltcode erforderlich'
-      : doneLocked
-        ? 'Abgeschlossen – zum erneuten Üben auf 🔄 (Neustart)'
-        : view.resumable
-          ? 'Aufgabe fortsetzen'
-          : 'Aufgabe starten';
+    open.title = gateLocked ? m.openLocked : doneLocked ? m.openCompleted : view.resumable ? m.openResume : m.openStart;
     const icon = document.createElement('span');
     icon.className = `status status-${gateLocked ? 'locked' : view.status}`;
     icon.textContent = gateLocked ? '🔒' : statusIcon(view.status);
@@ -206,11 +207,7 @@ function drawRows(): void {
     const restart = document.createElement('button');
     restart.className = 'exercise-restart';
     restart.disabled = gateLocked;
-    restart.title = gateLocked
-      ? 'Gesperrt – Freischaltcode erforderlich'
-      : doneLocked
-        ? 'Erneut üben (entsperrt und startet neu)'
-        : 'Aufgabe neu starten';
+    restart.title = gateLocked ? m.openLocked : doneLocked ? m.restartCompleted : m.restartPlain;
     restart.textContent = '🔄';
     if (!gateLocked) restart.onclick = () => void restartExercise(ex.id);
 
@@ -225,7 +222,7 @@ async function openExercise(id: string): Promise<void> {
     await api.openExercise(id);
     showExercise(); // switch only after success; on error the overview stays visible
   } catch (e) {
-    showError(`Aufgabe konnte nicht geöffnet werden: ${errText(e)}`);
+    showError(`${m.errOpenExercise}: ${errText(e)}`);
   }
 }
 
@@ -234,7 +231,7 @@ async function restartExercise(id: string): Promise<void> {
     await api.restartExercise(id);
     showExercise();
   } catch (e) {
-    showError(`Aufgabe konnte nicht neu gestartet werden: ${errText(e)}`);
+    showError(`${m.errRestartExercise}: ${errText(e)}`);
   }
 }
 
@@ -242,10 +239,10 @@ api.onTick((b: TickBroadcast) => {
   const intro = $('intro') as HTMLDetailsElement;
   const debrief = $('debrief');
   if (b.isComplete) {
-    $('title').textContent = 'Aufgabe abgeschlossen';
+    $('title').textContent = m.completedTitle;
     $('title').className = 'done';
     $('progress').textContent = '';
-    $('task').textContent = 'Gut gemacht! 🎉';
+    $('task').textContent = m.completedTask;
     $('goals').innerHTML = '';
     intro.hidden = true; // concept framing is done; the debrief takes over
     if (b.debrief) {
@@ -267,7 +264,7 @@ api.onTick((b: TickBroadcast) => {
   if (b.step) {
     $('title').className = '';
     $('title').textContent = b.step.title;
-    $('progress').textContent = `Schritt ${b.step.index + 1} von ${b.step.total}`;
+    $('progress').textContent = m.stepOf(b.step.index + 1, b.step.total);
     $('task').innerHTML = richTextToHtml(b.step.task);
   }
   const goals = $('goals');
@@ -282,7 +279,7 @@ api.onTick((b: TickBroadcast) => {
   for (const p of b.newPitfalls) {
     const div = document.createElement('div');
     div.className = `pitfall ${p.severity === 'danger' ? 'danger' : ''}`;
-    div.innerHTML = `<strong>Achtung:</strong> ${p.message}` + (p.recovery ? `<br><em>${p.recovery}</em>` : '');
+    div.innerHTML = `<strong>${m.pitfallPrefix}</strong> ${p.message}` + (p.recovery ? `<br><em>${p.recovery}</em>` : '');
     messages.prepend(div);
   }
   if (b.revealedHint) showHint(b.revealedHint);
@@ -353,13 +350,13 @@ function renderTimer(): void {
     return;
   }
   if (timerRemaining <= 0) {
-    el.textContent = '⏱ Zeit abgelaufen';
+    el.textContent = m.timerExpired;
     el.className = 'expired';
     return;
   }
-  const m = Math.floor(timerRemaining / 60);
-  const s = timerRemaining % 60;
-  el.textContent = `⏱ ${m}:${String(s).padStart(2, '0')}`;
+  const mins = Math.floor(timerRemaining / 60);
+  const secs = timerRemaining % 60;
+  el.textContent = `⏱ ${mins}:${String(secs).padStart(2, '0')}`;
   el.className = timerRemaining <= 60 ? 'warn' : ''; // blink red in the final minute
 }
 
@@ -396,14 +393,14 @@ api.onTimerSet((remainingSec) => {
 function showHint(text: string): void {
   const div = document.createElement('div');
   div.className = 'hint';
-  div.textContent = `Tipp: ${text}`;
+  div.textContent = `${m.hintPrefix} ${text}`;
   $('messages').prepend(div);
 }
 
 function showError(text: string): void {
   const div = document.createElement('div');
   div.className = 'error';
-  div.innerHTML = `<strong>Fehler:</strong> ${text}`;
+  div.innerHTML = `<strong>${m.errorPrefix}</strong> ${text}`;
   $('messages').prepend(div);
 }
 
@@ -420,16 +417,16 @@ $('hint').addEventListener('click', async () => {
   try {
     const hint = await api.requestHint();
     if (hint) showHint(hint);
-    else showHint('Keine weiteren Tipps verfuegbar.');
+    else showHint(m.noMoreHints);
   } catch (e) {
-    showError(`Tipp konnte nicht abgerufen werden: ${errText(e)}`);
+    showError(`${m.errRequestHint}: ${errText(e)}`);
   }
 });
 $('reset').addEventListener('click', async () => {
   try {
     await api.resetExercise();
   } catch (e) {
-    showError(`Zuruecksetzen fehlgeschlagen: ${errText(e)}`);
+    showError(`${m.errReset}: ${errText(e)}`);
   }
 });
 $('back').addEventListener('click', async () => {
@@ -437,7 +434,7 @@ $('back').addEventListener('click', async () => {
   try {
     await api.pauseExercise();
   } catch (e) {
-    showError(`Aufgabe konnte nicht pausiert werden: ${errText(e)}`);
+    showError(`${m.errPause}: ${errText(e)}`);
   }
   showOverview();
 });
@@ -452,7 +449,7 @@ openGraphBtn.addEventListener('click', async () => {
     await api.openGraph();
     openGraphBtn.hidden = true;
   } catch (e) {
-    showError(`Graph-Fenster konnte nicht geoeffnet werden: ${errText(e)}`);
+    showError(`${m.errOpenGraph}: ${errText(e)}`);
   }
 });
 
@@ -475,11 +472,11 @@ async function submitUnlock(): Promise<void> {
   try {
     const n = await api.unlockExercises(code);
     if (n > 0) {
-      setUnlockStatus(`${n} Aufgabe${n === 1 ? '' : 'n'} freigeschaltet ✓`, 'ok');
+      setUnlockStatus(m.unlocked(n), 'ok');
       input.value = '';
       await renderPicker(); // refresh badges; hides the field once nothing is left locked
     } else {
-      setUnlockStatus('Code ungültig oder bereits verwendet.', 'err');
+      setUnlockStatus(m.unlockInvalid, 'err');
     }
   } catch (e) {
     setUnlockStatus(errText(e), 'err');
@@ -492,4 +489,35 @@ $('unlock-code').addEventListener('keydown', (e) => {
 });
 $('unlock-code').addEventListener('input', () => setUnlockStatus('', ''));
 
-renderPicker();
+/**
+ * Apply a UI locale: swap the catalog, set <html lang>, re-label the static parts of the panel and
+ * redraw what is derived from the catalog. The running exercise's texts arrive via the next tick
+ * (main relocalizes the session), the overview re-fetches its (now localized) titles.
+ */
+function applyLocale(locale: Locale): void {
+  m = uiMessages(locale);
+  document.documentElement.lang = languageOf(locale);
+  document.title = m.consoleWindowTitle;
+  $('picker-title').textContent = m.overviewTitle;
+  ($('search') as HTMLInputElement).placeholder = m.searchPlaceholder;
+  $('unlock-label').textContent = m.unlockLabel;
+  ($('unlock-code') as HTMLInputElement).placeholder = m.unlockPlaceholder;
+  $('unlock-btn').textContent = m.unlockButton;
+  $('back').textContent = m.backToOverview;
+  $('intro-summary').textContent = m.introSummary;
+  $('goals-heading').textContent = m.goalsHeading;
+  $('hint').textContent = m.hintButton;
+  $('reset').textContent = m.resetButton;
+  openGraphBtn.textContent = m.openGraphButton;
+  renderTimer();
+}
+
+api.onLocaleChanged((locale) => {
+  applyLocale(locale);
+  if (!($('overview') as HTMLElement).hidden) void renderPicker(); // localized titles + tooltips
+});
+
+void api.getLocale().then((locale) => {
+  applyLocale(locale);
+  return renderPicker();
+});

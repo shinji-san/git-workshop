@@ -4,7 +4,10 @@ import * as fs from 'node:fs';
 import { composeApp, defaultExercisesRoot, defaultDataDir, AppConfig } from './composition';
 import { SessionController, SessionView } from './SessionController';
 import { exerciseFileSuffix } from './exerciseFileSuffix';
-import { SettingsStore, ThemeSource } from './settings';
+import { SettingsStore, ThemeSource, LocaleSource } from './settings';
+import { mainMessages, LANGUAGE_NAMES } from './i18n';
+import { uiMessages } from '../shared/i18n/ui';
+import { DEFAULT_LOCALE, UI_LOCALES, UiLocale, resolveUiLocale } from '../../core/i18n/Locale';
 import { Channels, RendererApi, TickBroadcast, Theme, CopyMenuEntry } from '../shared/ipc-contract';
 
 /**
@@ -76,6 +79,20 @@ let lastBroadcast: TickBroadcast | null = null; // last state, to immediately fi
 const GAP = 24; // pixel gap between the side-by-side windows
 const PRELOAD = () => path.join(__dirname, '../preload/preload.cjs');
 
+// --- Locale ---------------------------------------------------------------
+// Preference (system/<tag>) is persisted; "system" follows Electron's app.getLocale(), resolved
+// to the closest UI locale. The effective locale drives main's menu/dialogs, both renderers
+// (pushed over IPC) and the exercise texts (via the SessionController).
+
+let currentLocale: UiLocale = DEFAULT_LOCALE;
+/** Main-process catalog for the current locale. */
+const M = () => mainMessages(currentLocale);
+
+function effectiveLocale(): UiLocale {
+  const src = settings.readLocaleSource();
+  return src === 'system' ? resolveUiLocale(app.getLocale()) : src;
+}
+
 /** Bridge the controller to the windows. */
 const view: SessionView = {
   terminalData: (data) => consoleWin?.webContents.send(Channels.terminalData, data),
@@ -117,6 +134,13 @@ function loadRenderer(win: BrowserWindow, name: 'renderer-console' | 'renderer-g
   }
 }
 
+/** Window titles follow the locale (the renderers set document.title too; this covers the chrome). */
+function applyWindowTitles(): void {
+  const ui = uiMessages(currentLocale);
+  consoleWin?.setTitle(ui.consoleWindowTitle);
+  graphWin?.setTitle(ui.graphWindowTitle);
+}
+
 function createWindows(): void {
   const L = windowLayout();
   consoleWin = new BrowserWindow({
@@ -124,7 +148,7 @@ function createWindows(): void {
     y: L.y,
     width: L.consoleWidth,
     height: L.winHeight,
-    title: 'Git-Workshop – Konsole',
+    title: uiMessages(currentLocale).consoleWindowTitle,
     ...(windowIcon ? { icon: windowIcon } : {}),
     webPreferences: { preload: PRELOAD(), contextIsolation: true, nodeIntegration: false },
   });
@@ -152,7 +176,7 @@ function openGraphWindow(): void {
     y: cb ? cb.y : L.y,
     width: L.graphWidth,
     height: cb ? cb.height : L.winHeight,
-    title: 'Git-Workshop – Commit-Graph',
+    title: uiMessages(currentLocale).graphWindowTitle,
     ...(windowIcon ? { icon: windowIcon } : {}),
     webPreferences: { preload: PRELOAD(), contextIsolation: true, nodeIntegration: false },
   });
@@ -180,8 +204,8 @@ function requestGraphExport(): void {
   if (!graphWin) {
     void dialog.showMessageBox({
       type: 'info',
-      message: 'Das Graph-Fenster ist geschlossen.',
-      detail: 'Bitte zuerst das Graph-Fenster öffnen und dann erneut exportieren.',
+      message: M().graphClosedMessage,
+      detail: M().graphClosedDetail,
     });
     return;
   }
@@ -207,13 +231,10 @@ async function confirmResetProgress(): Promise<void> {
   const parent = BrowserWindow.getFocusedWindow() ?? consoleWin ?? graphWin;
   const opts = {
     type: 'warning' as const,
-    title: 'Fortschritt zurücksetzen',
-    message: 'Gesamten Fortschritt zurücksetzen?',
-    detail:
-      'Setzt den Teilnehmer-Fortschritt zurück (abgeschlossene/pausierte Aufgaben) und löscht ' +
-      'gespeicherte Zwischenstände (Snapshots). Eine laufende Übung wird beendet. Diese Aktion ' +
-      'kann nicht rückgängig gemacht werden.',
-    buttons: ['Abbrechen', 'Zurücksetzen'],
+    title: M().resetTitle,
+    message: M().resetMessage,
+    detail: M().resetDetail,
+    buttons: [M().resetCancel, M().resetConfirm],
     defaultId: 0,
     cancelId: 0,
     noLink: true,
@@ -223,7 +244,7 @@ async function confirmResetProgress(): Promise<void> {
   try {
     await controller.resetProgress();
   } catch (err) {
-    dialog.showErrorBox('Zurücksetzen fehlgeschlagen', String(err));
+    dialog.showErrorBox(M().resetFailed, String(err));
   }
 }
 
@@ -260,17 +281,17 @@ async function showAbout(): Promise<void> {
   const parent = BrowserWindow.getFocusedWindow() ?? consoleWin ?? graphWin;
   const opts = {
     type: 'info' as const,
-    title: 'Über Git-Workshop',
+    title: M().aboutTitle,
     message: 'Git-Workshop',
-    detail: `Version ${app.getVersion()}\nAutor: Sebastian Walther\nProjektseite: ${HOMEPAGE}\n\n© 2026 Sebastian Walther · Lizenz: MIT`,
-    buttons: ['Schließen', 'Lizenz anzeigen', 'Projektseite öffnen'],
+    detail: M().aboutDetail(app.getVersion(), HOMEPAGE),
+    buttons: [M().aboutClose, M().aboutLicense, M().aboutHomepage],
     defaultId: 0,
     cancelId: 0,
     noLink: true,
   };
   const { response } = parent ? await dialog.showMessageBox(parent, opts) : await dialog.showMessageBox(opts);
   if (response === 1) {
-    const lic = { type: 'info' as const, title: 'Lizenz', message: 'MIT License', detail: MIT_LICENSE, buttons: ['Schließen'], noLink: true };
+    const lic = { type: 'info' as const, title: M().licenseTitle, message: 'MIT License', detail: MIT_LICENSE, buttons: [M().aboutClose], noLink: true };
     if (parent) await dialog.showMessageBox(parent, lic);
     else await dialog.showMessageBox(lic);
   } else if (response === 2) {
@@ -303,48 +324,67 @@ function setThemeSource(src: ThemeSource): void {
   broadcastTheme();
 }
 
+/**
+ * Apply and persist a language preference: re-label the menu and the window titles, push the
+ * effective locale to both renderers and relocalize a running exercise via the controller.
+ */
+function setLocaleSource(src: LocaleSource): void {
+  settings.writeLocaleSource(src);
+  currentLocale = effectiveLocale();
+  buildAppMenu();
+  applyWindowTitles();
+  for (const w of [consoleWin, graphWin]) w?.webContents.send(Channels.localeChanged, currentLocale);
+  void controller.setLocale(currentLocale);
+}
+
 function buildAppMenu(): void {
+  const m = M();
   const source = settings.readThemeSource();
   const themeItem = (label: string, src: ThemeSource) =>
     ({ label, type: 'radio' as const, checked: source === src, click: () => setThemeSource(src) });
 
+  const localeSource = settings.readLocaleSource();
+  const localeItem = (label: string, src: LocaleSource) =>
+    ({ label, type: 'radio' as const, checked: localeSource === src, click: () => setLocaleSource(src) });
+
   // DevTools is opt-in via settings.json ("devTools": true). Toggles the focused window,
   // so it works for whichever window (console or graph) currently has focus.
   const devItems = settings.readDevTools()
-    ? [{ label: 'Entwicklertools', role: 'toggleDevTools' as const }, { type: 'separator' as const }]
+    ? [{ label: m.menuDevTools, role: 'toggleDevTools' as const }, { type: 'separator' as const }]
     : [];
 
   const menu = Menu.buildFromTemplate([
     {
-      label: 'Datei',
+      label: m.menuFile,
       submenu: [
-        { label: 'Konsolen-Ausgabe exportieren…', click: () => requestConsoleExport() },
-        { label: 'Graph als PNG exportieren…', click: () => requestGraphExport() },
+        { label: m.menuExportConsole, click: () => requestConsoleExport() },
+        { label: m.menuExportGraph, click: () => requestGraphExport() },
         { type: 'separator' },
-        { label: 'Fortschritt zurücksetzen…', click: () => void confirmResetProgress() },
+        { label: m.menuResetProgress, click: () => void confirmResetProgress() },
         { type: 'separator' },
-        { label: 'Beenden', role: 'quit' },
+        { label: m.menuQuit, role: 'quit' },
       ],
     },
     {
-      label: 'Ansicht',
+      label: m.menuView,
       submenu: [
         {
-          label: 'Erscheinungsbild',
-          submenu: [
-            themeItem('System', 'system'),
-            themeItem('Hell', 'light'),
-            themeItem('Dunkel', 'dark'),
-          ],
+          label: m.menuAppearance,
+          submenu: [themeItem(m.themeSystem, 'system'), themeItem(m.themeLight, 'light'), themeItem(m.themeDark, 'dark')],
+        },
+        {
+          // Languages are listed by their endonym (each language named in itself).
+          label: m.menuLanguage,
+          submenu: [localeItem(m.languageSystem, 'system'), ...UI_LOCALES.map((l) => localeItem(LANGUAGE_NAMES[l], l))],
         },
         { type: 'separator' },
         ...devItems,
-        { label: 'Vollbild', role: 'togglefullscreen' },
+        { label: m.menuFullscreen, role: 'togglefullscreen' },
       ],
     },
     {
-      label: 'Hilfe',
-      submenu: [{ label: 'Über Git-Workshop', click: () => void showAbout() }],
+      label: m.menuHelp,
+      submenu: [{ label: m.menuAbout, click: () => void showAbout() }],
     },
   ]);
   Menu.setApplicationMenu(menu);
@@ -367,9 +407,9 @@ function registerIpc(): void {
     const suffix = title ? exerciseFileSuffix(title) : '';
     const stamp = fileStamp();
     const opts = {
-      title: 'Graph als PNG exportieren',
+      title: M().exportGraphTitle,
       defaultPath: suffix ? `commit-graph_${suffix}_${stamp}.png` : `commit-graph_${stamp}.png`,
-      filters: [{ name: 'PNG-Bild', extensions: ['png'] }],
+      filters: [{ name: M().exportGraphFilter, extensions: ['png'] }],
     };
     const parent = graphWin ?? consoleWin;
     const result = parent ? await dialog.showSaveDialog(parent, opts) : await dialog.showSaveDialog(opts);
@@ -377,11 +417,12 @@ function registerIpc(): void {
     try {
       await fs.promises.writeFile(result.filePath, Buffer.from(png));
     } catch (err) {
-      dialog.showErrorBox('Export fehlgeschlagen', String(err));
+      dialog.showErrorBox(M().exportFailed, String(err));
     }
   });
 
   ipcMain.handle(Channels.themeGet, () => effectiveTheme());
+  ipcMain.handle(Channels.localeGet, () => currentLocale);
 
   // Native terminal context menu. xterm keeps its own selection (not the DOM's), so the
   // renderer passes the selected text in: Copy writes it to the clipboard here, Paste/Select-all
@@ -390,10 +431,10 @@ function registerIpc(): void {
     const win = BrowserWindow.fromWebContents(e.sender) ?? undefined;
     return new Promise((resolve) => {
       const menu = Menu.buildFromTemplate([
-        { label: 'Kopieren', enabled: selection.length > 0, click: () => { clipboard.writeText(selection); resolve({}); } },
-        { label: 'Einfügen', click: () => resolve({ paste: clipboard.readText() }) },
+        { label: M().ctxCopy, enabled: selection.length > 0, click: () => { clipboard.writeText(selection); resolve({}); } },
+        { label: M().ctxPaste, click: () => resolve({ paste: clipboard.readText() }) },
         { type: 'separator' },
-        { label: 'Alles auswählen', click: () => resolve({ selectAll: true }) },
+        { label: M().ctxSelectAll, click: () => resolve({ selectAll: true }) },
       ]);
       menu.popup({ window: win, callback: () => resolve({}) });
     });
@@ -425,8 +466,8 @@ function registerIpc(): void {
     if (!text.trim()) {
       void dialog.showMessageBox({
         type: 'info',
-        message: 'Keine Konsolen-Ausgabe vorhanden.',
-        detail: 'Bitte zuerst eine Aufgabe öffnen und im Terminal arbeiten.',
+        message: M().consoleEmptyMessage,
+        detail: M().consoleEmptyDetail,
       });
       return;
     }
@@ -434,16 +475,16 @@ function registerIpc(): void {
     const suffix = title ? exerciseFileSuffix(title) : '';
     const stamp = fileStamp();
     const opts = {
-      title: 'Konsolen-Ausgabe exportieren',
+      title: M().exportConsoleTitle,
       defaultPath: suffix ? `konsole_${suffix}_${stamp}.txt` : `konsole_${stamp}.txt`,
-      filters: [{ name: 'Textdatei', extensions: ['txt', 'log'] }],
+      filters: [{ name: M().exportConsoleFilter, extensions: ['txt', 'log'] }],
     };
     const result = consoleWin ? await dialog.showSaveDialog(consoleWin, opts) : await dialog.showSaveDialog(opts);
     if (result.canceled || !result.filePath) return;
     try {
       await fs.promises.writeFile(result.filePath, text.endsWith('\n') ? text : text + '\n', 'utf8');
     } catch (err) {
-      dialog.showErrorBox('Export fehlgeschlagen', String(err));
+      dialog.showErrorBox(M().exportFailed, String(err));
     }
   });
 
@@ -458,6 +499,10 @@ if (process.platform === 'win32') app.setAppUserModelId('de.workshop.git-worksho
 app.whenReady().then(async () => {
   console.log('[startup] progress file:', config.progressFile);
   await di.sandboxes.sweep(); // sweep out leftovers from previous runs
+  // The locale must be known before progress is loaded (first-run seeding lists the exercises).
+  currentLocale = effectiveLocale();
+  await controller.setLocale(currentLocale);
+  console.log('[startup] locale:', currentLocale);
   await controller.loadProgress();
   nativeTheme.themeSource = settings.readThemeSource();
   // Follow live OS theme changes while the preference is 'system'.

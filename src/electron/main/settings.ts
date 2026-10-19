@@ -1,11 +1,15 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { UiLocale, resolveUiLocale } from '../../core/i18n/Locale';
 
 /** Theme preference: follow the OS, or force light/dark. */
 export type ThemeSource = 'system' | 'light' | 'dark';
 
+/** Language preference: follow the OS locale, or force one of the UI locales (BCP 47 tag). */
+export type LocaleSource = 'system' | UiLocale;
+
 /**
- * Tiny persisted UI settings (currently just the theme preference) under
+ * Tiny persisted UI settings (theme + language preference, trainer switches) under
  * ~/.git-workshop/settings.json. A shell-level concern, so it lives in the
  * electron layer without a domain port. Reads/writes are best-effort: a missing
  * or corrupt file falls back to 'system' and never crashes startup.
@@ -25,6 +29,24 @@ export class SettingsStore {
 
   writeThemeSource(themeSource: ThemeSource): void {
     this.patch({ themeSource });
+  }
+
+  /**
+   * Language preference (`"locale"` in settings.json): "system" follows the OS; any other value is
+   * resolved to the closest UI locale (so "en" or "en-GB" both mean en-US). Default: system.
+   */
+  readLocaleSource(): LocaleSource {
+    try {
+      const raw = JSON.parse(fs.readFileSync(this.file, 'utf8')) as { locale?: unknown };
+      if (typeof raw.locale !== 'string' || raw.locale === 'system') return 'system';
+      return resolveUiLocale(raw.locale);
+    } catch {
+      return 'system';
+    }
+  }
+
+  writeLocaleSource(locale: LocaleSource): void {
+    this.patch({ locale });
   }
 
   /**
