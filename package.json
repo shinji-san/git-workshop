@@ -28,7 +28,8 @@
     "bundles:gen": "tsx scripts/generate-bundles.ts",
     "icon:gen": "tsx scripts/generate-icon.ts",
     "vendor:win": "tsx scripts/fetch-git-portable.ts",
-    "postinstall": "tsx scripts/generate-bundles.ts && tsx scripts/generate-icon.ts",
+    "electron:fetch": "tsx scripts/fetch-electron.ts",
+    "postinstall": "tsx scripts/generate-bundles.ts && tsx scripts/generate-icon.ts && tsx scripts/fetch-electron.ts",
     "dist:linux": "npm run icon:gen && npm run bundles:gen && electron-vite build && electron-builder --linux --publish never",
     "dist:win": "npm run vendor:win && npm run icon:gen && npm run bundles:gen && electron-vite build && electron-builder --win --publish never"
   },

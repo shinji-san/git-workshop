@@ -70,6 +70,7 @@ scripts/
   gen-unlock.ts         #   prints an unlock: block (salted hash) from a plaintext code
   clean.ts              #   removes build outputs + caches (npm run clean / clean:deep)
   fetch-git-portable.ts #   downloads Git for Windows Portable for the Windows build
+  fetch-electron.ts     #   fetches the Electron binary (Electron ≥ 42 has no postinstall of its own)
 build/
   icon.svg              #   app-icon source (versioned; icon.png is generated, gitignored)
 test/                   # Vitest mirror of the core (+ a few infra/electron-pure tests)
@@ -363,9 +364,9 @@ the editor. A `schemaVersion` field allows later migration. An exercise package 
   **Dependency changes:** the npm 10.9.0 bundled with Node 22.12 crashes with `Cannot read properties
   of null (reading 'edgesOut')` whenever `npm install <pkg>` / `npm audit fix` has to resolve this
   tree's peer sets (vitest/vite/electron). Use `npx -y npm@11 <command>` for those; `npm ci`, `test`
-  and `build` are unaffected. (Unrelated to npm: Electron ≥ 42 ships **no postinstall** any more —
-  the binary is fetched lazily on the first `require('electron')`, or explicitly via
-  `node node_modules/electron/install.js`, see README → Troubleshooting.)
+  and `build` are unaffected. (Unrelated to npm: Electron ≥ 42 ships **no postinstall** any more,
+  so our `postinstall` ends with `scripts/fetch-electron.ts`, which runs Electron's own installer
+  idempotently; `ELECTRON_SKIP_BINARY_DOWNLOAD=1` skips it, `npm run electron:fetch` retries it.)
 - **Purity:** never import Node/Electron/Git in `core/`. IO belongs in `infrastructure`, wiring in
   `electron/main/composition.ts`. Keep IPC handlers in `main.ts` thin.
 
@@ -401,7 +402,7 @@ Run with the Node 22 toolchain on PATH (`export PATH="$HOME/.local/node22/bin:$P
   native modules (Electron, node-pty).
 - After regenerating: `npm run schema:gen` rewrites `exercises/**/exercise.schema.json` (versioned).
 - `npm run clean:deep && npm ci` for a truly fresh dependency tree; if Electron's binary download was
-  skipped, re-run `node node_modules/electron/install.js`.
+  skipped or failed, re-run `npm run electron:fetch`.
 
 ---
 

@@ -77,16 +77,17 @@ Interactive desktop trainer for hands-on Git workshops: a **real Git console in 
 
 ```bash
 git clone <repo> && cd git-workshop
-npm install          # pulls deps; postinstall builds the exercise bundles + icon
+npm install          # pulls deps; postinstall builds the exercise bundles + icon, fetches the Electron binary
 npm test             # unit tests of the pure core (no Electron needed)
 npm run dev          # launch the app (needs a desktop environment)
 ```
 
 > **Troubleshooting**
 >
-> - `npm run dev`/`start` reports `Electron uninstall`: the Electron binary wasn't downloaded during
->   install (Electron ≥ 42 ships no postinstall any more) — run `node node_modules/electron/install.js`
->   (or `npm rebuild electron`) to fetch it.
+> - `npm run dev`/`start` reports `Electron uninstall`: the Electron binary is missing. Electron ≥ 42
+>   ships no postinstall of its own, so ours fetches it (`scripts/fetch-electron.ts`) — unless
+>   `ELECTRON_SKIP_BINARY_DOWNLOAD` was set or the download failed (offline). Fetch it now with
+>   `npm run electron:fetch`.
 > - `npm run dev` exits with code 1, the windows stay **empty**, and the console shows
 >   `inotify_init() failed: Too many open files` (localized on some systems) followed by
 >   `Failed to load URL: http://localhost:5173/… ERR_CONNECTION_REFUSED` (Linux): your session has
@@ -119,6 +120,7 @@ npm run dev          # launch the app (needs a desktop environment)
 | `npm run bundles:gen`          | Build the exercise bundles reproducibly (also runs as `postinstall`).                                                                                     |
 | `npm run icon:gen`             | Rasterize `build/icon.svg` → `build/icon.png` (for the `dist:*` builds).                                                                                  |
 | `npm run unlock:gen -- "CODE"` | Print the `unlock:` block (salted hash) for a gated exercise.                                                                                             |
+| `npm run electron:fetch`       | Fetch the Electron binary into `node_modules/electron/dist` (idempotent; last `postinstall` step, Electron ≥ 42 has none of its own). Skip with `ELECTRON_SKIP_BINARY_DOWNLOAD=1`. |
 | `npm run dev`                  | Start the app via electron-vite (hot reload).                                                                                                             |
 | `npm run build`                | Build main/preload/renderer into `out/`.                                                                                                                  |
 | `npm run start` / `preview`    | Start the built artifacts.                                                                                                                                |
